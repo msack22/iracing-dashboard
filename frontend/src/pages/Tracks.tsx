@@ -19,11 +19,11 @@ function TrackCard({ track }: { track: any }) {
         </div>
         <div className="space-y-1">
           {track.configs.map((cfg: any) => (
-            <div key={cfg.track_id} className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{cfg.config_name}</span>
-              <Badge variant={cfg.owned ? 'success' : 'outline'} className="text-xs">
-                {cfg.owned ? 'Tenés' : 'No tenés'}
-              </Badge>
+            <div key={cfg.track_id} className="flex items-center gap-2 text-xs">
+              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.owned ? 'bg-emerald-400' : 'bg-muted-foreground/30'}`} />
+              <span className={cfg.owned ? 'text-foreground' : 'text-muted-foreground'}>
+                {cfg.config_name}
+              </span>
             </div>
           ))}
         </div>
