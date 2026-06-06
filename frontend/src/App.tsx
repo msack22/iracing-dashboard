@@ -5,6 +5,7 @@ import { Setup } from '@/pages/Setup';
 import { Dashboard } from '@/pages/Dashboard';
 import { Garage } from '@/pages/Garage';
 import { Tracks } from '@/pages/Tracks';
+import { SeriesCalendar } from '@/pages/SeriesCalendar';
 import { ShopAdvisor } from '@/pages/ShopAdvisor';
 import { Races } from '@/pages/Races';
 import { api } from '@/api/client';
@@ -15,11 +16,12 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
       <Sidebar onLogout={onLogout} />
       <main className="flex-1 overflow-y-auto">
         <Routes>
-          <Route path="/"       element={<Dashboard />} />
-          <Route path="/garage" element={<Garage />} />
-          <Route path="/tracks" element={<Tracks />} />
-          <Route path="/shop"   element={<ShopAdvisor />} />
-          <Route path="/races"  element={<Races />} />
+          <Route path="/"          element={<Dashboard />} />
+          <Route path="/garage"    element={<Garage />} />
+          <Route path="/tracks"    element={<Tracks />} />
+          <Route path="/calendar"  element={<SeriesCalendar />} />
+          <Route path="/shop"      element={<ShopAdvisor />} />
+          <Route path="/races"     element={<Races />} />
         </Routes>
       </main>
     </div>

@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dataclasses import asdict
+from typing import List, Optional
 
 from domain.repositories.i_cars_repository import ICarsRepository
 from domain.repositories.i_tracks_repository import ITracksRepository
@@ -90,11 +91,76 @@ def create_app(
         races = await races_repo.get_recent_races(count=count)
         return {"data": [asdict(r) for r in races]}
 
+    # ── Series calendar ───────────────────────────────────────────────────────
+    @app.get("/api/series")
+    async def get_series():
+        from infrastructure.iracing.mock.mock_data import MOCK_SERIES, MOCK_CARS, MOCK_TRACKS
+        all_cars = await cars_repo.get_all_cars()
+        all_tracks = await tracks_repo.get_all_tracks()
+        car_map = {c.car_id: c for c in all_cars}
+        track_map = {t.track_id: t for t in all_tracks}
+
+        result = []
+        for s in MOCK_SERIES:
+            # Cars needed for this series
+            series_cars = [
+                {
+                    "car_id": c.car_id,
+                    "name": c.name,
+                    "car_type": c.car_class_name,
+                    "owned": c.owned,
+                    "price": c.price,
+                }
+                for c in all_cars
+                if c.car_class_id in s["car_class_ids"]
+            ]
+            owned_cars_count = sum(1 for c in series_cars if c["owned"])
+
+            # Tracks this season
+            season_tracks = []
+            for tid in s["season_tracks"]:
+                t = track_map.get(tid)
+                if t:
+                    season_tracks.append({
+                        "track_id": t.track_id,
+                        "name": t.name,
+                        "country": t.country,
+                        "owned": t.owned,
+                        "price": t.price,
+                    })
+            owned_tracks_count = sum(1 for t in season_tracks if t["owned"])
+
+            can_race = owned_cars_count > 0 and owned_tracks_count > 0
+            missing_cars = [c for c in series_cars if not c["owned"]]
+            missing_tracks = [t for t in season_tracks if not t["owned"]]
+
+            result.append({
+                "series_id": s["series_id"],
+                "series_name": s["series_name"],
+                "car_type": s["car_type"],
+                "cars": series_cars,
+                "season_tracks": season_tracks,
+                "can_race": can_race,
+                "owned_cars_count": owned_cars_count,
+                "owned_tracks_count": owned_tracks_count,
+                "missing_cars": missing_cars,
+                "missing_tracks": missing_tracks,
+            })
+        return {"data": result}
+
     # ── Recommendations ───────────────────────────────────────────────────────
     @app.get("/api/recommendations")
-    async def recommendations(bundle_size: int = 3):
+    async def recommendations(
+        bundle_size: int = 3,
+        car_types: Optional[List[str]] = Query(default=None),
+        include_cars: bool = True,
+    ):
         uc = GetPurchaseRecommendationsUseCase(cars_repo, tracks_repo)
-        result = await uc.execute(bundle_size)
+        result = await uc.execute(
+            bundle_size=bundle_size,
+            car_types=car_types if car_types else None,
+            include_cars=include_cars,
+        )
         return {"data": result}
 
     return app

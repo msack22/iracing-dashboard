@@ -46,7 +46,18 @@ export const api = {
   races: {
     recent: (count = 20) => get<any[]>('/races/recent', { count }),
   },
+  series: {
+    all: () => get<any[]>('/series'),
+  },
   recommendations: {
-    get: (bundleSize = 3) => get<any>('/recommendations', { bundle_size: bundleSize }),
+    get: (bundleSize = 3, carTypes: string[] = [], includeCars = true) => {
+      const url = new URL('/api/recommendations', window.location.origin);
+      url.searchParams.set('bundle_size', String(bundleSize));
+      url.searchParams.set('include_cars', String(includeCars));
+      carTypes.forEach((t) => url.searchParams.append('car_types', t));
+      return fetch(url.toString())
+        .then((r) => r.json())
+        .then((j) => j.data ?? j);
+    },
   },
 };

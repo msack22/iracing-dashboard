@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Car, MapPin, ShoppingCart, Flag, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Car, MapPin, ShoppingCart, Flag, Calendar, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/api/client';
 
@@ -7,6 +7,7 @@ const links = [
   { to: '/',               icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/garage',         icon: Car,             label: 'Mi Garage' },
   { to: '/tracks',         icon: MapPin,          label: 'Mis Pistas' },
+  { to: '/calendar',       icon: Calendar,        label: 'Series' },
   { to: '/shop',           icon: ShoppingCart,    label: 'Shop Advisor' },
   { to: '/races',          icon: Flag,            label: 'Carreras' },
 ];

@@ -1,6 +1,9 @@
+from __future__ import annotations
 from dataclasses import dataclass
+from typing import List, Optional
 from domain.repositories.i_cars_repository import ICarsRepository
 from domain.repositories.i_tracks_repository import ITracksRepository
+from infrastructure.iracing.mock.mock_data import MOCK_SERIES
 
 DISCOUNT_TIERS = [(6, 0.15), (3, 0.10)]
 
@@ -20,11 +23,12 @@ class ContentItem:
     price: float
     series_count: int
     score: float
+    car_type: Optional[str] = None   # e.g. 'GT3', 'F4'
 
 
 @dataclass
 class Bundle:
-    items: list[ContentItem]
+    items: List[ContentItem]
     total_price: float
     discount_pct: float
     savings: float
@@ -36,54 +40,129 @@ class GetPurchaseRecommendationsUseCase:
         self._cars = cars_repo
         self._tracks = tracks_repo
 
-    async def execute(self, bundle_size: int = 3) -> dict:
+    async def execute(
+        self,
+        bundle_size: int = 3,
+        car_types: Optional[List[str]] = None,   # ['GT3', 'F4'] – empty = all
+        include_cars: bool = True,
+    ) -> dict:
         all_cars, all_tracks = await self._cars.get_all_cars(), await self._tracks.get_all_tracks()
 
+        # Investment summary (always full, unfiltered)
         owned_cars = [c for c in all_cars if c.owned]
         owned_tracks = [t for t in all_tracks if t.owned]
         total_spent = sum(c.price for c in owned_cars) + sum(t.price for t in owned_tracks)
 
-        car_items = []
-        for c in all_cars:
-            if not c.owned and not c.retired:
-                sc = await self._cars.get_series_count_by_car_id(c.car_id)
-                car_items.append(ContentItem("car", c.car_id, c.name, c.price, sc, sc * 10 - c.price * 0.5))
+        # Filter series by selected car types
+        selected_series = MOCK_SERIES
+        if car_types:
+            selected_series = [
+                s for s in MOCK_SERIES
+                if s["car_type"] in car_types
+            ]
 
-        track_items = []
+        # Car class IDs and season track IDs from the selected series
+        relevant_class_ids: set[int] = set()
+        relevant_track_ids: set[int] = set()
+        for s in selected_series:
+            relevant_class_ids.update(s["car_class_ids"])
+            relevant_track_ids.update(s["season_tracks"])
+
+        # Build car items (only if include_cars=True and matches selected category)
+        car_items: List[ContentItem] = []
+        if include_cars:
+            for c in all_cars:
+                if c.owned or c.retired:
+                    continue
+                if car_types and c.car_class_id not in relevant_class_ids:
+                    continue
+                sc = await self._cars.get_series_count_by_car_id(c.car_id)
+                car_type_label = _resolve_car_type(c.car_class_name, c.name)
+                car_items.append(ContentItem(
+                    type="car", id=c.car_id, name=c.name, price=c.price,
+                    series_count=sc, score=sc * 10 - c.price * 0.5,
+                    car_type=car_type_label,
+                ))
+
+        # Build track items (filtered to tracks used in selected series this season)
+        track_items: List[ContentItem] = []
         for t in all_tracks:
-            if not t.owned:
-                sc = await self._tracks.get_series_count_by_track_id(t.track_id)
-                track_items.append(ContentItem("track", t.track_id, t.name, t.price, sc, sc * 10 - t.price * 0.5))
+            if t.owned:
+                continue
+            if car_types and t.track_id not in relevant_track_ids:
+                continue
+            sc = await self._tracks.get_series_count_by_track_id(t.track_id)
+            track_items.append(ContentItem(
+                type="track", id=t.track_id, name=t.name, price=t.price,
+                series_count=sc, score=sc * 10 - t.price * 0.5,
+            ))
 
         all_items = sorted(car_items + track_items, key=lambda x: x.score, reverse=True)
         top_items = all_items[:20]
 
-        bundles = []
-        pool = list(top_items)
-        while len(pool) >= bundle_size:
-            chunk = pool[:bundle_size]
-            pool = pool[bundle_size:]
-            total = sum(i.price for i in chunk)
-            disc = _get_discount(bundle_size)
-            savings = round(total * disc, 2)
-            bundles.append(Bundle(chunk, round(total, 2), disc, savings, round(total - savings, 2)))
-        bundles = bundles[:3]
+        bundles = _build_bundles(top_items, bundle_size)
+
+        # Available car types for the filter UI
+        available_car_types = sorted({s["car_type"] for s in MOCK_SERIES})
 
         return {
-            "top_items": [vars(i) for i in top_items],
-            "bundles": [
-                {
-                    "items": [vars(i) for i in b.items],
-                    "total_price": b.total_price,
-                    "discount_pct": b.discount_pct,
-                    "savings": b.savings,
-                    "final_price": b.final_price,
-                }
-                for b in bundles
-            ],
+            "top_items": [_item_to_dict(i) for i in top_items],
+            "bundles": [_bundle_to_dict(b) for b in bundles],
             "investment_summary": {
                 "owned_cars": len(owned_cars),
                 "owned_tracks": len(owned_tracks),
                 "total_spent": round(total_spent, 2),
             },
+            "available_car_types": available_car_types,
+            "selected_series": [
+                {"series_name": s["series_name"], "car_type": s["car_type"]}
+                for s in selected_series
+            ],
         }
+
+
+def _resolve_car_type(class_name: str, car_name: str) -> str:
+    name = (class_name or car_name).lower()
+    if "f4" in name or "formula 4" in name: return "F4"
+    if "f3" in name or "formula 3" in name: return "F3"
+    if "ir-01" in name or "ir01" in name: return "Formula iR"
+    if "formula 2000" in name or "skip barber" in name: return "Formula 2000"
+    if "lmp3" in name: return "LMP3"
+    if "lmp2" in name: return "LMP2"
+    if "gtp" in name: return "GTP"
+    if "gt3 cup" in name or "cup" in name: return "GT3 Cup"
+    if "gt3" in name: return "GT3"
+    if "gt4" in name: return "GT4"
+    if "mx-5" in name or "mx5" in name: return "MX-5"
+    if "classic formula" in name or "lotus" in name: return "Classic F1"
+    return class_name or "—"
+
+
+def _build_bundles(items: List[ContentItem], size: int) -> List[Bundle]:
+    bundles = []
+    pool = list(items)
+    while len(pool) >= size:
+        chunk, pool = pool[:size], pool[size:]
+        total = sum(i.price for i in chunk)
+        disc = _get_discount(size)
+        savings = round(total * disc, 2)
+        bundles.append(Bundle(chunk, round(total, 2), disc, savings, round(total - savings, 2)))
+    return bundles[:3]
+
+
+def _item_to_dict(i: ContentItem) -> dict:
+    d = {"type": i.type, "id": i.id, "name": i.name, "price": i.price,
+         "series_count": i.series_count, "score": i.score}
+    if i.car_type:
+        d["car_type"] = i.car_type
+    return d
+
+
+def _bundle_to_dict(b: Bundle) -> dict:
+    return {
+        "items": [_item_to_dict(i) for i in b.items],
+        "total_price": b.total_price,
+        "discount_pct": b.discount_pct,
+        "savings": b.savings,
+        "final_price": b.final_price,
+    }

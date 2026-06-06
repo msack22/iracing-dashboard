@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/api/client';
-import { ShoppingCart, TrendingUp, DollarSign, Package } from 'lucide-react';
+import { ShoppingCart, TrendingUp, DollarSign, Package, Car, MapPin } from 'lucide-react';
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function BundleCard({ bundle, index }: { bundle: any; index: number }) {
   return (
@@ -13,20 +15,29 @@ function BundleCard({ bundle, index }: { bundle: any; index: number }) {
           <CardTitle className="text-sm">Bundle #{index + 1}</CardTitle>
           <Badge variant="success">{(bundle.discount_pct * 100).toFixed(0)}% OFF</Badge>
         </div>
-        <div className="flex items-center gap-4 text-xs">
-          <span className="text-muted-foreground line-through">${bundle.total_price}</span>
-          <span className="text-lg font-bold text-primary">${bundle.final_price}</span>
-          <span className="text-emerald-400">Ahorrás ${bundle.savings}</span>
+        <div className="flex items-center gap-4">
+          <span className="text-muted-foreground line-through text-sm">${bundle.total_price}</span>
+          <span className="text-xl font-bold text-primary">${bundle.final_price}</span>
+          <span className="text-xs text-emerald-400">Ahorrás ${bundle.savings}</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
         {bundle.items.map((item: any) => (
-          <div key={`${item.type}-${item.id}`} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">{item.type === 'car' ? '🏎️ Auto' : '🗺️ Pista'}</Badge>
-              <span className="text-sm">{item.name}</span>
+          <div
+            key={`${item.type}-${item.id}`}
+            className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {item.type === 'car'
+                ? <Car size={13} className="shrink-0 text-primary" />
+                : <MapPin size={13} className="shrink-0 text-blue-400" />
+              }
+              <span className="text-sm truncate">{item.name}</span>
+              {item.car_type && (
+                <Badge variant="secondary" className="text-xs shrink-0">{item.car_type}</Badge>
+              )}
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-2">
               <span>{item.series_count} series</span>
               <span className="font-medium text-foreground">${item.price}</span>
             </div>
@@ -40,12 +51,16 @@ function BundleCard({ bundle, index }: { bundle: any; index: number }) {
 function TopItemRow({ item, rank }: { item: any; rank: number }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
-      <div className="flex items-center gap-3">
-        <span className="w-5 text-xs text-muted-foreground text-right">{rank}</span>
-        <Badge variant="secondary" className="text-xs shrink-0">
-          {item.type === 'car' ? 'Auto' : 'Pista'}
-        </Badge>
-        <span className="text-sm">{item.name}</span>
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-5 text-xs text-muted-foreground text-right shrink-0">{rank}</span>
+        {item.type === 'car'
+          ? <Car size={13} className="shrink-0 text-primary" />
+          : <MapPin size={13} className="shrink-0 text-blue-400" />
+        }
+        <span className="text-sm truncate">{item.name}</span>
+        {item.car_type && (
+          <Badge variant="secondary" className="text-xs shrink-0">{item.car_type}</Badge>
+        )}
       </div>
       <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
         <span className="flex items-center gap-1">
@@ -58,49 +73,152 @@ function TopItemRow({ item, rank }: { item: any; rank: number }) {
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export function ShopAdvisor() {
   const [data, setData] = useState<any>(null);
   const [bundleSize, setBundleSize] = useState(3);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [includeCars, setIncludeCars] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  const load = async (size: number) => {
+  const load = useCallback(async (size: number, types: string[], cars: boolean) => {
     setLoading(true);
-    const res = await api.recommendations.get(size);
+    const res = await api.recommendations.get(size, types, cars);
     setData(res);
     setLoading(false);
+  }, []);
+
+  useEffect(() => { load(bundleSize, selectedTypes, includeCars); }, []);
+
+  const toggleType = (type: string) => {
+    const next = selectedTypes.includes(type)
+      ? selectedTypes.filter((t) => t !== type)
+      : [...selectedTypes, type];
+    setSelectedTypes(next);
+    load(bundleSize, next, includeCars);
   };
 
-  useEffect(() => { load(bundleSize); }, []);
+  const handleBundleSize = (size: number) => {
+    setBundleSize(size);
+    load(size, selectedTypes, includeCars);
+  };
+
+  const handleIncludeCars = (val: boolean) => {
+    setIncludeCars(val);
+    load(bundleSize, selectedTypes, val);
+  };
+
+  const availableTypes: string[] = data?.available_car_types ?? [];
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Shop Advisor</h1>
-          <p className="text-sm text-muted-foreground">Optimizá tus compras con descuentos por bundle</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Tamaño del bundle:</span>
-          {[3, 6].map((n) => (
-            <Button
-              key={n}
-              variant={bundleSize === n ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => { setBundleSize(n); load(n); }}
-            >
-              {n} items ({n === 3 ? '10%' : '15%'} OFF)
-            </Button>
-          ))}
-        </div>
+    <div className="space-y-5 p-6">
+
+      {/* Header */}
+      <div>
+        <h1 className="text-xl font-semibold">Shop Advisor</h1>
+        <p className="text-sm text-muted-foreground">
+          Optimizá tus compras según las categorías que querés correr
+        </p>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+
+          {/* Car type selector */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Categoría que querés correr
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { setSelectedTypes([]); load(bundleSize, [], includeCars); }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
+                  selectedTypes.length === 0
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                Todas
+              </button>
+              {availableTypes.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => toggleType(type)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
+                    selectedTypes.includes(type)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Series shown */}
+          {selectedTypes.length > 0 && data?.selected_series?.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Series incluidas en el calendario:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {data.selected_series.map((s: any) => (
+                  <Badge key={s.series_name} variant="outline" className="text-xs">
+                    {s.series_name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-6 pt-1 border-t border-border">
+            {/* Bundle size */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Bundle:</span>
+              {[3, 6].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => handleBundleSize(n)}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors border ${
+                    bundleSize === n
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {n} items ({n === 3 ? '10%' : '15%'} OFF)
+                </button>
+              ))}
+            </div>
+
+            {/* Include cars toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Incluir autos:</span>
+              <button
+                onClick={() => handleIncludeCars(!includeCars)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  includeCars ? 'bg-primary' : 'bg-muted'
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  includeCars ? 'translate-x-4' : 'translate-x-1'
+                }`} />
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {includeCars ? 'Sí' : 'Solo pistas'}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Investment summary */}
       {data?.investment_summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <DollarSign size={16} className="text-primary" />
+              <div className="rounded-lg bg-primary/10 p-2 shrink-0">
+                <DollarSign size={15} className="text-primary" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total invertido</p>
@@ -110,8 +228,8 @@ export function ShopAdvisor() {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-muted p-2">
-                <ShoppingCart size={16} className="text-muted-foreground" />
+              <div className="rounded-lg bg-muted p-2 shrink-0">
+                <Car size={15} className="text-muted-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Autos propios</p>
@@ -121,8 +239,8 @@ export function ShopAdvisor() {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-muted p-2">
-                <Package size={16} className="text-muted-foreground" />
+              <div className="rounded-lg bg-muted p-2 shrink-0">
+                <MapPin size={15} className="text-muted-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pistas propias</p>
@@ -137,19 +255,38 @@ export function ShopAdvisor() {
         <div className="flex justify-center py-12">
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
+      ) : data?.top_items?.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            No hay contenido para comprar con los filtros seleccionados.
+            <br />
+            <span className="text-xs">Puede que ya tengas todo lo necesario para esa categoría.</span>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
           {/* Bundles */}
           <div className="space-y-4">
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Bundles recomendados</h2>
-            {data?.bundles?.map((b: any, i: number) => (
-              <BundleCard key={i} bundle={b} index={i} />
-            ))}
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Bundles recomendados
+            </h2>
+            {data?.bundles?.length > 0
+              ? data.bundles.map((b: any, i: number) => (
+                  <BundleCard key={i} bundle={b} index={i} />
+                ))
+              : (
+                <p className="text-sm text-muted-foreground">
+                  No hay suficientes items para armar un bundle de {bundleSize}.
+                </p>
+              )
+            }
           </div>
 
           {/* Top items by value */}
           <div>
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Mejor valor (series disponibles)</h2>
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              Mejor valor · por cantidad de series
+            </h2>
             <Card>
               <CardContent className="p-4">
                 {data?.top_items?.slice(0, 15).map((item: any, i: number) => (

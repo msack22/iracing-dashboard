@@ -133,6 +133,67 @@ MOCK_RACES: list[Race] = [
          1310, 1340, 3.02, 3.25, "road"),
 ]
 
+# Series del calendario actual — qué pistas y autos usa cada categoría esta temporada
+# car_class_ids mapea con car.car_class_id en MOCK_CARS
+MOCK_SERIES = [
+    {
+        "series_id": 501,
+        "series_name": "iRacing Formula 4 Series",
+        "car_type": "F4",
+        "car_class_ids": [101],         # Dallara F4
+        "season_tracks": [1, 2, 4, 5, 6, 7, 9],   # track_ids en el calendario
+    },
+    {
+        "series_id": 502,
+        "series_name": "F3 Open Series",
+        "car_type": "F3",
+        "car_class_ids": [68],          # Dallara F3
+        "season_tracks": [2, 4, 8, 9, 10, 12],
+    },
+    {
+        "series_id": 505,
+        "series_name": "iRacing Formula iR-01 Series",
+        "car_type": "Formula iR",
+        "car_class_ids": [129],         # Dallara iR-01
+        "season_tracks": [5, 6, 7, 8, 10, 13],
+    },
+    {
+        "series_id": 503,
+        "series_name": "GT3 Endurance Series",
+        "car_type": "GT3",
+        "car_class_ids": [100, 92, 118, 145, 131],  # Ferrari, McLaren, Mercedes, BMW, Porsche Cup
+        "season_tracks": [1, 2, 5, 6, 7, 8, 10, 12],
+    },
+    {
+        "series_id": 504,
+        "series_name": "Porsche GT3 Cup Series",
+        "car_type": "GT3 Cup",
+        "car_class_ids": [131],         # Porsche GT3 Cup 992
+        "season_tracks": [1, 4, 5, 7, 9, 13],
+    },
+    {
+        "series_id": 506,
+        "series_name": "GT4 Challenge Series",
+        "car_type": "GT4",
+        "car_class_ids": [148],         # Toyota GR86
+        "season_tracks": [1, 2, 4, 9, 12, 13],
+    },
+    {
+        "series_id": 507,
+        "series_name": "LMP3 Series",
+        "car_type": "LMP3",
+        "car_class_ids": [128],         # Ligier JS P320
+        "season_tracks": [5, 6, 7, 8, 10, 13],
+    },
+    {
+        "series_id": 508,
+        "series_name": "GTP Series",
+        "car_type": "GTP",
+        "car_class_ids": [140],         # Porsche 963
+        "season_tracks": [6, 7, 8, 10, 12, 13],
+    },
+]
+
 MOCK_IRATING_HISTORY = [
     {"timestamp": "2024-02-01T00:00:00Z", "irating": 1200},
     {"timestamp": "2024-02-15T00:00:00Z", "irating": 1230},
