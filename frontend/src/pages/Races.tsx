@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
+import { useRacingMode } from '@/context/RacingModeContext';
 import { Flag, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { formatLapTime } from '@/lib/utils';
 import {
@@ -9,15 +10,18 @@ import {
 } from 'recharts';
 
 export function Races() {
-  const [races, setRaces] = useState<any[]>([]);
+  const { filterRaces, mode } = useRacingMode();
+  const [allRaces, setAllRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.races.recent(20).then((data) => {
-      setRaces(data);
+      setAllRaces(data);
       setLoading(false);
     });
   }, []);
+
+  const races = filterRaces(allRaces);
 
   const incidentData = races.slice().reverse().map((r, i) => ({
     name: `C${i + 1}`,
@@ -29,8 +33,15 @@ export function Races() {
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Carreras</h1>
-          <p className="text-sm text-muted-foreground">{races.length} carreras recientes</p>
+          <h1 className="text-xl font-semibold">
+            Carreras
+            {mode !== 'all' && (
+              <span className={`ml-2 text-sm font-normal ${mode === 'formula' ? 'text-orange-400' : 'text-blue-400'}`}>
+                · {mode === 'formula' ? '🏎️ Fórmula' : '🚗 Sport Car'}
+              </span>
+            )}
+          </h1>
+          <p className="text-sm text-muted-foreground">{races.length} carreras{mode !== 'all' ? ' en esta categoría' : ' recientes'}</p>
         </div>
         <Flag size={20} className="text-muted-foreground" />
       </div>
@@ -62,6 +73,12 @@ export function Races() {
         <div className="flex justify-center py-12">
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
+      ) : races.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            No hay carreras registradas para {mode === 'formula' ? 'Fórmula' : 'Sport Car'}.
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="p-0">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { RacingModeProvider } from '@/context/RacingModeContext';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Setup } from '@/pages/Setup';
 import { Dashboard } from '@/pages/Dashboard';
@@ -49,7 +50,9 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <AppShell onLogout={() => setConfigured(false)} />
+      <RacingModeProvider>
+        <AppShell onLogout={() => setConfigured(false)} />
+      </RacingModeProvider>
     </BrowserRouter>
   );
 }

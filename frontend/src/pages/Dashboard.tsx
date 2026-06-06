@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
+import { useRacingMode } from '@/context/RacingModeContext';
 import { TrendingUp, TrendingDown, Shield, Trophy, AlertTriangle, DollarSign } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -46,10 +47,17 @@ function licenseColor(group: string) {
   return 'bg-muted';
 }
 
+const MODE_LABEL: Record<string, string> = {
+  all: 'Road',
+  formula: 'Fórmula',
+  sport: 'Sport Car',
+};
+
 export function Dashboard() {
+  const { mode, filterRaces } = useRacingMode();
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
-  const [races, setRaces] = useState<any[]>([]);
+  const [allRaces, setAllRaces] = useState<any[]>([]);
   const [recs, setRecs] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,16 +65,18 @@ export function Dashboard() {
     Promise.all([
       api.member.profile(),
       api.member.iratingHistory(),
-      api.races.recent(5),
+      api.races.recent(20),
       api.recommendations.get(),
     ]).then(([p, h, r, rec]) => {
       setProfile(p);
       setHistory(h);
-      setRaces(r);
+      setAllRaces(r);
       setRecs(rec);
       setLoading(false);
     });
   }, []);
+
+  const races = filterRaces(allRaces).slice(0, 5);
 
   if (loading) {
     return (
@@ -88,12 +98,20 @@ export function Dashboard() {
           <h1 className="text-xl font-semibold">{profile?.display_name ?? 'Driver'}</h1>
           <p className="text-sm text-muted-foreground">{profile?.club} · Member since {profile?.member_since?.slice(0,4)}</p>
         </div>
-        {roadLicense && (
-          <div className="flex items-center gap-2">
-            <div className={`h-3 w-3 rounded-full ${licenseColor(roadLicense.group_name)}`} />
-            <span className="text-sm font-medium">{roadLicense.group_name}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {mode !== 'all' && (
+            <Badge variant={mode === 'formula' ? 'warning' : 'secondary'}
+              className={mode === 'formula' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}>
+              Vista: {MODE_LABEL[mode]}
+            </Badge>
+          )}
+          {roadLicense && (
+            <div className="flex items-center gap-2">
+              <div className={`h-3 w-3 rounded-full ${licenseColor(roadLicense.group_name)}`} />
+              <span className="text-sm font-medium">{roadLicense.group_name}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats grid */}
@@ -129,7 +147,7 @@ export function Dashboard() {
       {/* iRating chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Evolución iRating (Road)</CardTitle>
+          <CardTitle className="text-sm">Evolución iRating · {MODE_LABEL[mode]}</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={200}>
@@ -165,7 +183,10 @@ export function Dashboard() {
       {/* Last 5 races */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Últimas carreras</CardTitle>
+          <CardTitle className="text-sm">
+            Últimas carreras
+            {mode !== 'all' && <span className="ml-2 text-xs font-normal text-muted-foreground">· {MODE_LABEL[mode]}</span>}
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
