@@ -1,4 +1,6 @@
-from dataclasses import dataclass, field
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import List, Optional
 
 
 @dataclass
@@ -7,7 +9,7 @@ class TrackConfig:
     config_name: str
     owned: bool
     price: float
-    package_id: int | None = None
+    package_id: Optional[int] = None
 
 
 @dataclass
@@ -16,7 +18,7 @@ class Track:
     name: str
     city: str
     country: str
-    configs: list[TrackConfig]
+    configs: List[TrackConfig]
     owned: bool
     price: float
-    package_id: int | None = None
+    package_id: Optional[int] = None

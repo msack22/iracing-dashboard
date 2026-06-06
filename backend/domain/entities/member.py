@@ -1,5 +1,6 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from typing import Literal
+from typing import List, Literal
 
 LicenseCategory = Literal["road", "oval", "dirt_road", "dirt_oval"]
 
@@ -20,6 +21,6 @@ class Member:
     username: str
     display_name: str
     club: str
-    licenses: list[License]
+    licenses: List[License]
     member_since: str
     last_login: str

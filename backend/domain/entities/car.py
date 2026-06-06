@@ -1,5 +1,6 @@
-from dataclasses import dataclass, field
-from typing import Literal
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import List, Literal, Optional
 
 CarCategory = Literal["road", "oval", "dirt_road", "dirt_oval"]
 
@@ -8,10 +9,10 @@ CarCategory = Literal["road", "oval", "dirt_road", "dirt_oval"]
 class Car:
     car_id: int
     name: str
-    categories: list[CarCategory]
+    categories: List[CarCategory]
     car_class_id: int
     car_class_name: str
     price: float
     owned: bool
     retired: bool = False
-    package_id: int | None = None
+    package_id: Optional[int] = None

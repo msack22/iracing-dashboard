@@ -1,19 +1,21 @@
+from __future__ import annotations
+from typing import Dict, List, Optional
 from domain.entities.car import Car, CarCategory
 from domain.repositories.i_cars_repository import ICarsRepository
 from infrastructure.iracing.mock.mock_data import MOCK_CARS, MOCK_SERIES_COUNT
 
 
 class MockCarsRepository(ICarsRepository):
-    async def get_all_cars(self) -> list[Car]:
+    async def get_all_cars(self) -> List[Car]:
         return MOCK_CARS
 
-    async def get_owned_cars(self) -> list[Car]:
+    async def get_owned_cars(self) -> List[Car]:
         return [c for c in MOCK_CARS if c.owned]
 
-    async def get_cars_by_category(self, category: CarCategory) -> list[Car]:
+    async def get_cars_by_category(self, category: CarCategory) -> List[Car]:
         return [c for c in MOCK_CARS if category in c.categories]
 
-    async def get_car_by_id(self, car_id: int) -> Car | None:
+    async def get_car_by_id(self, car_id: int) -> Optional[Car]:
         return next((c for c in MOCK_CARS if c.car_id == car_id), None)
 
     async def get_series_count_by_car_id(self, car_id: int) -> int:
@@ -23,21 +25,21 @@ class MockCarsRepository(ICarsRepository):
 class IracingCarsRepository(ICarsRepository):
     def __init__(self, client) -> None:
         self._client = client
-        self._series_cache: dict[str, int] = {}
+        self._series_cache: Dict[str, int] = {}
 
-    async def get_all_cars(self) -> list[Car]:
+    async def get_all_cars(self) -> List[Car]:
         raw = self._client.get_cars()
         return [self._map(c) for c in raw]
 
-    async def get_owned_cars(self) -> list[Car]:
+    async def get_owned_cars(self) -> List[Car]:
         all_cars = await self.get_all_cars()
         return [c for c in all_cars if c.owned]
 
-    async def get_cars_by_category(self, category: CarCategory) -> list[Car]:
+    async def get_cars_by_category(self, category: CarCategory) -> List[Car]:
         all_cars = await self.get_all_cars()
         return [c for c in all_cars if category in c.categories]
 
-    async def get_car_by_id(self, car_id: int) -> Car | None:
+    async def get_car_by_id(self, car_id: int) -> Optional[Car]:
         all_cars = await self.get_all_cars()
         return next((c for c in all_cars if c.car_id == car_id), None)
 

@@ -1,13 +1,15 @@
+from __future__ import annotations
+from typing import List, Optional
 from domain.entities.race import Race
 from domain.repositories.i_races_repository import IRacesRepository
 from infrastructure.iracing.mock.mock_data import MOCK_RACES
 
 
 class MockRacesRepository(IRacesRepository):
-    async def get_recent_races(self, cust_id: int | None = None, count: int = 20) -> list[Race]:
+    async def get_recent_races(self, cust_id: Optional[int] = None, count: int = 20) -> List[Race]:
         return MOCK_RACES[:count]
 
-    async def get_race_by_id(self, subsession_id: int) -> Race | None:
+    async def get_race_by_id(self, subsession_id: int) -> Optional[Race]:
         return next((r for r in MOCK_RACES if r.subsession_id == subsession_id), None)
 
 
@@ -16,7 +18,7 @@ class IracingRacesRepository(IRacesRepository):
         self._client = client
         self._cust_id = default_cust_id
 
-    async def get_recent_races(self, cust_id: int | None = None, count: int = 20) -> list[Race]:
+    async def get_recent_races(self, cust_id: Optional[int] = None, count: int = 20) -> List[Race]:
         cid = cust_id or self._cust_id
         try:
             raw = self._client.stats_member_recent_races(cust_id=cid)
@@ -25,7 +27,7 @@ class IracingRacesRepository(IRacesRepository):
         except Exception:
             return []
 
-    async def get_race_by_id(self, subsession_id: int) -> Race | None:
+    async def get_race_by_id(self, subsession_id: int) -> Optional[Race]:
         races = await self.get_recent_races()
         return next((r for r in races if r.subsession_id == subsession_id), None)
 

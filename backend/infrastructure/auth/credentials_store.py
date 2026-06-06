@@ -48,7 +48,8 @@ def save_credentials(username: str, password: str) -> None:
         conn.execute("INSERT INTO credentials (username, password) VALUES (?, ?)", (enc_user, enc_pass))
 
 
-def load_credentials() -> tuple[str, str] | None:
+def load_credentials():
+    # Returns (username, password) tuple or None
     """Returns (username, password) or None if not configured."""
     with _get_connection() as conn:
         row = conn.execute("SELECT username, password FROM credentials LIMIT 1").fetchone()
