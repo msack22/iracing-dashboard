@@ -1,15 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { api } from '@/api/client';
 import { Car, Filter, Check, Plus, Search } from 'lucide-react';
-import { CAR_GROUP_LABELS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
+import { CAR_GROUP_LABEL_KEYS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
 
 const CAT_LABEL: Record<string, string> = { road: 'Road', oval: 'Oval', dirt_road: 'Dirt Road', dirt_oval: 'Dirt Oval' };
-const GROUP_FILTERS: { value: 'Todos' | CarGroupKey; label: string }[] = [
-  { value: 'Todos', label: 'Todos' },
-  ...CAR_GROUP_ORDER.map((g) => ({ value: g, label: CAR_GROUP_LABELS[g] })),
+const GROUP_FILTER_KEYS: { value: 'Todos' | CarGroupKey; labelKey: string }[] = [
+  { value: 'Todos', labelKey: 'garage.filterAll' },
+  ...CAR_GROUP_ORDER.map((g) => ({ value: g, labelKey: CAR_GROUP_LABEL_KEYS[g] })),
 ];
 
 function carTypeLabel(carClassName: string, carName: string): string {
@@ -31,6 +32,7 @@ function carTypeLabel(carClassName: string, carName: string): string {
 }
 
 function CarCard({ car, onToggle }: { car: any; onToggle: (id: number, owned: boolean) => void }) {
+  const { t } = useTranslation();
   const isFree = car.price === 0;
   const typeLabel = carTypeLabel(car.car_class_name, car.name);
 
@@ -45,7 +47,7 @@ function CarCard({ car, onToggle }: { car: any; onToggle: (id: number, owned: bo
             </p>
           </div>
           <Badge variant={isFree ? 'secondary' : 'outline'} className="shrink-0">
-            {isFree ? 'Gratis' : `$${car.price}`}
+            {isFree ? t('garage.free') : `$${car.price}`}
           </Badge>
         </div>
         <div className="mt-3 flex items-center justify-between">
@@ -59,10 +61,10 @@ function CarCard({ car, onToggle }: { car: any; onToggle: (id: number, owned: bo
                 ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
                 : 'bg-muted text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-400'
             }`}
-            title={car.owned ? 'Marcar como no tenés' : 'Marcar como tenés'}
+            title={car.owned ? t('garage.markAsNotHave') : t('garage.markAsHave')}
           >
             {car.owned ? <Check size={11} /> : <Plus size={11} />}
-            {car.owned ? 'Tenés' : 'No tenés'}
+            {car.owned ? t('garage.have') : t('garage.notHave')}
           </button>
         </div>
       </CardContent>
@@ -71,6 +73,7 @@ function CarCard({ car, onToggle }: { car: any; onToggle: (id: number, owned: bo
 }
 
 export function Garage() {
+  const { t } = useTranslation();
   const [cars, setCars] = useState<any[]>([]);
   const [filter, setFilter] = useState<'Todos' | CarGroupKey>('Todos');
   const [showAll, setShowAll] = useState(false);
@@ -108,8 +111,8 @@ export function Garage() {
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Mi Garage</h1>
-          <p className="text-sm text-muted-foreground">{ownedCount} autos en tu colección · {cars.length} en total</p>
+          <h1 className="text-xl font-semibold">{t('garage.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('garage.subtitle', { owned: ownedCount, total: cars.length })}</p>
         </div>
         <Car size={20} className="text-muted-foreground" />
       </div>
@@ -117,7 +120,7 @@ export function Garage() {
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1.5 flex-wrap">
-          {GROUP_FILTERS.map((g) => (
+          {GROUP_FILTER_KEYS.map((g) => (
             <button
               key={g.value}
               onClick={() => setFilter(g.value)}
@@ -127,7 +130,7 @@ export function Garage() {
                   : 'bg-secondary text-secondary-foreground hover:bg-accent'
               }`}
             >
-              {g.label}
+              {t(g.labelKey)}
             </button>
           ))}
         </div>
@@ -136,7 +139,7 @@ export function Garage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar auto o clase…"
+            placeholder={t('garage.searchPlaceholder')}
             className="h-8 pl-8 text-xs"
           />
         </div>
@@ -148,7 +151,7 @@ export function Garage() {
             }`}
           >
             <Filter size={12} />
-            {showAll ? 'Ver los que tenés' : 'Ver todos'}
+            {showAll ? t('garage.showOwned') : t('garage.showAll')}
           </button>
         </div>
       </div>
@@ -156,7 +159,7 @@ export function Garage() {
       {/* Info banner */}
       {!loading && (
         <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
-          Hacé click en "No tenés" para marcar manualmente los autos que compraste. Esto persiste aunque la API de iRacing no esté disponible.
+          {t('garage.infoBanner')}
         </p>
       )}
 
@@ -171,7 +174,7 @@ export function Garage() {
           ))}
           {visible.length === 0 && (
             <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
-              {q ? `Ningún auto coincide con "${search}"` : 'No hay autos para mostrar'}
+              {q ? t('garage.noResultsFor', { query: search }) : t('garage.noResults')}
             </div>
           )}
         </div>

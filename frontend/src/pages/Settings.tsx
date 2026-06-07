@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/api/client';
 import { Upload, CheckCircle2, XCircle, RefreshCw, FileText, Loader2, Car, MapPin, Search, Database } from 'lucide-react';
@@ -34,6 +35,7 @@ function ParsedSeriesCard({
   checked: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const matchPct = s.total_tracks > 0 ? Math.round((s.matched_count / s.total_tracks) * 100) : 0;
 
@@ -53,7 +55,7 @@ function ParsedSeriesCard({
           <p className="text-sm font-medium truncate">{s.series_name}</p>
           <p className="text-xs text-muted-foreground">
             {s.car_names.join(', ')} · {s.license_class}
-            {s.car_type && <span className="ml-1 text-foreground/70">· clase: {s.car_type}</span>}
+            {s.car_type && <span className="ml-1 text-foreground/70">{t('settings.carClass', { type: s.car_type })}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -63,7 +65,7 @@ function ParsedSeriesCard({
             matchPct >= 50  ? 'bg-amber-500/20 text-amber-400' :
                               'bg-red-500/20 text-red-400'
           )}>
-            {s.matched_count}/{s.total_tracks} pistas
+            {t('settings.tracksMatched', { matched: s.matched_count, total: s.total_tracks })}
           </span>
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -76,17 +78,17 @@ function ParsedSeriesCard({
 
       {expanded && (
         <div className="border-t border-border px-3 py-2 space-y-0.5">
-          {s.tracks.map((t, i) => (
+          {s.tracks.map((tr, i) => (
             <div key={i} className="flex items-center gap-1.5 text-xs">
-              <StatusBadge ok={t.track_id !== null} />
-              <span className={t.track_id !== null ? 'text-foreground' : 'text-muted-foreground'}>
-                {t.track_id !== null ? t.name : t.raw}
+              <StatusBadge ok={tr.track_id !== null} />
+              <span className={tr.track_id !== null ? 'text-foreground' : 'text-muted-foreground'}>
+                {tr.track_id !== null ? tr.name : tr.raw}
               </span>
-              {t.track_id !== null && t.owned && (
-                <span className="text-emerald-400 text-[10px]">(propia)</span>
+              {tr.track_id !== null && tr.owned && (
+                <span className="text-emerald-400 text-[10px]">{t('settings.ownedTrack')}</span>
               )}
-              {t.track_id === null && (
-                <span className="text-amber-400 text-[10px]">(sin match)</span>
+              {tr.track_id === null && (
+                <span className="text-amber-400 text-[10px]">{t('settings.noMatch')}</span>
               )}
             </div>
           ))}
@@ -111,6 +113,7 @@ function OwnershipPanel({
   ownedIds: Set<number>;
   onToggle: (id: number, owned: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const idKey = type === 'car' ? 'car_id' : 'track_id';
 
@@ -129,12 +132,12 @@ function OwnershipPanel({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar..."
+            placeholder={t('settings.searchPlaceholder')}
             className="w-full pl-7 pr-3 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {ownedCount}/{items.length} propios
+          {t('settings.ownedOf', { owned: ownedCount, total: items.length })}
         </span>
       </div>
 
@@ -169,7 +172,7 @@ function OwnershipPanel({
           );
         })}
         {filtered.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">Sin resultados</p>
+          <p className="text-xs text-muted-foreground text-center py-4">{t('settings.noResults')}</p>
         )}
       </div>
     </div>
@@ -179,6 +182,7 @@ function OwnershipPanel({
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function Settings() {
+  const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState<ParsedSeries[] | null>(null);
@@ -238,7 +242,7 @@ export function Settings() {
   // PDF upload logic
   const uploadFile = async (file: File) => {
     if (!file.name.endsWith('.pdf')) {
-      setError('Solo se aceptan archivos PDF.');
+      setError(t('settings.onlyPdf'));
       return;
     }
     setLoading(true);
@@ -257,7 +261,7 @@ export function Settings() {
       setParsed(data);
       setSelected(new Set(data.map((_, i) => i)));
     } catch (e: any) {
-      setError(e.message ?? 'Error al procesar el PDF');
+      setError(e.message ?? t('settings.pdfError'));
     } finally {
       setLoading(false);
     }
@@ -289,9 +293,9 @@ export function Settings() {
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
-      setImportResult(`✅ Importadas ${json.imported} series correctamente.`);
+      setImportResult(t('settings.importSuccess', { count: json.imported }));
     } catch (e: any) {
-      setImportResult(`❌ ${e.message}`);
+      setImportResult(t('settings.syncError', { error: e.message }));
     } finally {
       setImporting(false);
     }
@@ -304,13 +308,13 @@ export function Settings() {
       const res = await fetch('/api/catalog/sync', { method: 'POST' });
       const json = await res.json();
       if (json.ok) {
-        setSyncResult(`✅ Catálogo actualizado: ${json.cars} autos, ${json.tracks} pistas.`);
+        setSyncResult(t('settings.syncSuccess', { cars: json.cars, tracks: json.tracks }));
         await loadOwnership();
       } else {
-        setSyncResult(`⚠️ No se pudo sincronizar (¿API conectada?): ${json.error ?? 'error desconocido'}`);
+        setSyncResult(t('settings.syncFail', { error: json.error ?? t('settings.syncFailUnknown') }));
       }
     } catch (e: any) {
-      setSyncResult(`❌ ${e.message ?? 'Error al sincronizar el catálogo'}`);
+      setSyncResult(t('settings.syncError', { error: e.message ?? t('settings.syncErrorDefault') }));
     }
     setSyncing(false);
   };
@@ -319,9 +323,9 @@ export function Settings() {
     setImporting(true);
     try {
       await api.series.seed();
-      setImportResult('✅ Calendario reiniciado con datos de la temporada 2026 S2.');
+      setImportResult(t('settings.resetSuccess'));
     } catch {
-      setImportResult('❌ Error al reiniciar el calendario.');
+      setImportResult(t('settings.resetError'));
     }
     setImporting(false);
   };
@@ -329,8 +333,8 @@ export function Settings() {
   return (
     <div className="space-y-6 p-6 max-w-3xl">
       <div>
-        <h1 className="text-xl font-semibold">Configuración</h1>
-        <p className="text-sm text-muted-foreground">Importá calendarios, ajustá tu garage y preferencias</p>
+        <h1 className="text-xl font-semibold">{t('settings.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
 
       {/* ── Manual Car Ownership ────────────────────────────────────────────── */}
@@ -338,19 +342,19 @@ export function Settings() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Car size={16} />
-            Autos en mi Garage
+            {t('settings.carsInGarage')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {ownedLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
               <Loader2 size={14} className="animate-spin" />
-              Cargando...
+              {t('settings.loading')}
             </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground mb-3">
-                Marcá los autos que ya tenés. Estos se usan para calcular qué series podés correr sin comprar nada.
+                {t('settings.carsInGarageDesc')}
               </p>
               <OwnershipPanel
                 type="car"
@@ -368,19 +372,19 @@ export function Settings() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <MapPin size={16} />
-            Pistas que tengo
+            {t('settings.tracksIHave')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {ownedLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
               <Loader2 size={14} className="animate-spin" />
-              Cargando...
+              {t('settings.loading')}
             </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground mb-3">
-                Marcá las pistas que compraste. Se usa para el análisis de overlap y ver cuántas series podés correr.
+                {t('settings.tracksIHaveDesc')}
               </p>
               <OwnershipPanel
                 type="track"
@@ -398,13 +402,12 @@ export function Settings() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <FileText size={16} />
-            Importar Calendario de Temporada (PDF)
+            {t('settings.importTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Descargá el PDF oficial de iRacing con el calendario de la temporada y subilo acá.
-            El sistema extrae automáticamente las series y pistas para análisis de overlap.
+            {t('settings.importDesc')}
           </p>
 
           {/* Drop zone */}
@@ -425,9 +428,9 @@ export function Settings() {
             )}
             <div className="text-center">
               <p className="text-sm font-medium">
-                {loading ? 'Procesando PDF...' : 'Arrastrá el PDF aquí o hacé click'}
+                {loading ? t('settings.processingPdf') : t('settings.dropHint')}
               </p>
-              <p className="text-xs text-muted-foreground">SeasonSchedule.pdf de iRacing</p>
+              <p className="text-xs text-muted-foreground">{t('settings.dropFile')}</p>
             </div>
           </div>
           <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleFileChange} />
@@ -441,21 +444,21 @@ export function Settings() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">
-                  {parsed.length} series encontradas
+                  {t('settings.seriesFound', { count: parsed.length })}
                   <span className="ml-2 text-muted-foreground font-normal">
-                    ({parsed.filter((_, i) => selected.has(i)).length} seleccionadas)
+                    {t('settings.seriesSelected', { count: parsed.filter((_, i) => selected.has(i)).length })}
                   </span>
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSelected(new Set(parsed.map((_, i) => i)))}
                     className="text-xs text-primary hover:underline"
-                  >Todas</button>
+                  >{t('settings.selectAll')}</button>
                   <span className="text-muted-foreground text-xs">·</span>
                   <button
                     onClick={() => setSelected(new Set())}
                     className="text-xs text-muted-foreground hover:underline"
-                  >Ninguna</button>
+                  >{t('settings.selectNone')}</button>
                 </div>
               </div>
 
@@ -479,7 +482,7 @@ export function Settings() {
                 disabled={importing || selected.size === 0}
                 className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
               >
-                {importing ? 'Importando...' : `Importar ${selected.size} series`}
+                {importing ? t('settings.importing') : t('settings.importButton', { count: selected.size })}
               </button>
             </div>
           )}
@@ -495,14 +498,12 @@ export function Settings() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Database size={16} />
-            Sincronizar catálogo con la API
+            {t('settings.syncTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Cuando la API de iRacing esté disponible, esto actualiza nombres, precios y clases de
-            los autos y pistas existentes, y agrega los que sean nuevos. Si la API no está
-            conectada, no hace cambios.
+            {t('settings.syncDesc')}
           </p>
           <button
             onClick={handleCatalogSync}
@@ -510,7 +511,7 @@ export function Settings() {
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {syncing ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
-            {syncing ? 'Sincronizando...' : 'Sincronizar ahora'}
+            {syncing ? t('settings.syncing') : t('settings.syncNow')}
           </button>
           {syncResult && <p className="text-sm font-medium">{syncResult}</p>}
         </CardContent>
@@ -521,20 +522,19 @@ export function Settings() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <RefreshCw size={16} />
-            Reiniciar calendario
+            {t('settings.resetTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Restaura el calendario al predeterminado (datos 2026 S2 incluidos en la app).
-            Esto sobreescribe cualquier importación previa.
+            {t('settings.resetDesc')}
           </p>
           <button
             onClick={handleSeedDefault}
             disabled={importing}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-50 transition-colors"
           >
-            {importing ? 'Procesando...' : 'Reiniciar a 2026 S2'}
+            {importing ? t('settings.resetting') : t('settings.resetButton')}
           </button>
           {importResult && <p className="text-sm font-medium">{importResult}</p>}
         </CardContent>

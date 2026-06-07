@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -6,6 +7,7 @@ import { api } from '@/api/client';
 import { MapPin, Check, Plus, Filter, Search } from 'lucide-react';
 
 function TrackCard({ track, onToggle }: { track: any; onToggle: (id: number, owned: boolean) => void }) {
+  const { t } = useTranslation();
   return (
     <Card className={`overflow-hidden transition-all ${track.owned ? 'border-emerald-500/30' : 'border-border hover:border-primary/40'}`}>
       <CardContent className="p-4 space-y-3">
@@ -15,7 +17,7 @@ function TrackCard({ track, onToggle }: { track: any; onToggle: (id: number, own
             <p className="text-xs text-muted-foreground">{track.city}, {track.country}</p>
           </div>
           <Badge variant={track.price === 0 ? 'secondary' : 'outline'} className="shrink-0">
-            {track.price === 0 ? 'Gratis' : `$${track.price}`}
+            {track.price === 0 ? t('tracks.free') : `$${track.price}`}
           </Badge>
         </div>
         <div className="space-y-1">
@@ -37,7 +39,7 @@ function TrackCard({ track, onToggle }: { track: any; onToggle: (id: number, own
           }`}
         >
           {track.owned ? <Check size={11} /> : <Plus size={11} />}
-          {track.owned ? 'Tenés esta pista' : 'Marcar como comprada'}
+          {track.owned ? t('tracks.owned') : t('tracks.markAsOwned')}
         </button>
       </CardContent>
     </Card>
@@ -45,6 +47,7 @@ function TrackCard({ track, onToggle }: { track: any; onToggle: (id: number, own
 }
 
 export function Tracks() {
+  const { t } = useTranslation();
   const [tracks, setTracks] = useState<any[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState('');
@@ -83,22 +86,22 @@ export function Tracks() {
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Pistas</h1>
-          <p className="text-sm text-muted-foreground">{ownedCount} pistas · {tracks.length} en total</p>
+          <h1 className="text-xl font-semibold">{t('tracks.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('tracks.subtitle', { owned: ownedCount, total: tracks.length })}</p>
         </div>
         <MapPin size={20} className="text-muted-foreground" />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 flex-1 min-w-[200px]">
-          Marcá manualmente las pistas que compraste para ver qué te falta por serie.
+          {t('tracks.infoBanner')}
         </p>
         <div className="relative shrink-0 w-full sm:w-56">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar pista, ciudad, país…"
+            placeholder={t('tracks.searchPlaceholder')}
             className="h-8 pl-8 text-xs"
           />
         </div>
@@ -109,7 +112,7 @@ export function Tracks() {
           }`}
         >
           <Filter size={12} />
-          {showAll ? 'Ver las que tenés' : 'Ver todas'}
+          {showAll ? t('tracks.showOwned') : t('tracks.showAll')}
         </button>
       </div>
 
@@ -125,8 +128,8 @@ export function Tracks() {
           {visible.length === 0 && (
             <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
               {q
-                ? `Ninguna pista coincide con "${search}"`
-                : showAll ? 'No hay pistas' : 'No marcaste ninguna pista como comprada aún'}
+                ? t('tracks.noResultsFor', { query: search })
+                : showAll ? t('tracks.none') : t('tracks.noneOwned')}
             </div>
           )}
         </div>

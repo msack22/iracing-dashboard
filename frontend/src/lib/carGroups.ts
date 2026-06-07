@@ -4,13 +4,14 @@
 
 export type CarGroupKey = 'formula' | 'gt_sport' | 'oval_nascar' | 'dirt' | 'rallycross' | 'other';
 
-export const CAR_GROUP_LABELS: Record<CarGroupKey, string> = {
-  formula: '🏎️ Fórmula',
-  gt_sport: '🚗 GT & Sport',
-  oval_nascar: '🏁 Oval / NASCAR',
-  dirt: '🟤 Dirt',
-  rallycross: '🌲 Rallycross / Off-Road',
-  other: '🔧 Otro',
+/** Claves de traducción i18n para cada grupo (ver src/i18n/locales/*.json → carGroups). */
+export const CAR_GROUP_LABEL_KEYS: Record<CarGroupKey, string> = {
+  formula: 'carGroups.formula',
+  gt_sport: 'carGroups.gt_sport',
+  oval_nascar: 'carGroups.oval_nascar',
+  dirt: 'carGroups.dirt',
+  rallycross: 'carGroups.rallycross',
+  other: 'carGroups.other',
 };
 
 export const CAR_GROUP_ORDER: CarGroupKey[] = ['formula', 'gt_sport', 'oval_nascar', 'dirt', 'rallycross', 'other'];

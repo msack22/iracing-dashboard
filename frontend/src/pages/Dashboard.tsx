@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
@@ -47,6 +48,7 @@ function licenseColor(group: string) {
 }
 
 export function Dashboard() {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [allRaces, setAllRaces] = useState<any[]>([]);
@@ -93,8 +95,8 @@ export function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{profile?.display_name ?? 'Driver'}</h1>
-          <p className="text-sm text-muted-foreground">{profile?.club} · Member since {profile?.member_since?.slice(0,4)}</p>
+          <h1 className="text-xl font-semibold">{profile?.display_name ?? t('dashboard.driverFallback')}</h1>
+          <p className="text-sm text-muted-foreground">{t('dashboard.memberSince', { club: profile?.club, year: profile?.member_since?.slice(0,4) })}</p>
         </div>
         <div className="flex items-center gap-3">
           {roadLicense && (
@@ -109,28 +111,28 @@ export function Dashboard() {
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          title="iRating Road"
+          title={t('dashboard.statIRatingRoad')}
           value={roadLicense?.irating?.toLocaleString() ?? '—'}
-          sub={irDelta !== 0 ? `${irDelta > 0 ? '+' : ''}${irDelta} última carrera` : undefined}
+          sub={irDelta !== 0 ? t('dashboard.lastRaceDelta', { delta: `${irDelta > 0 ? '+' : ''}${irDelta}` }) : undefined}
           icon={irDelta >= 0 ? TrendingUp : TrendingDown}
           trend={irDelta > 0 ? 'up' : irDelta < 0 ? 'down' : 'neutral'}
         />
         <StatCard
-          title="Safety Rating"
+          title={t('dashboard.statSafetyRating')}
           value={roadLicense?.safety_rating?.toFixed(2) ?? '—'}
           icon={Shield}
           trend={roadLicense?.safety_rating >= 3.0 ? 'up' : 'down'}
         />
         <StatCard
-          title="Autos propios"
+          title={t('dashboard.statOwnedCars')}
           value={recs?.investment_summary?.owned_cars ?? '—'}
           icon={Trophy}
           trend="neutral"
         />
         <StatCard
-          title="Invertido en contenido"
+          title={t('dashboard.statInvestedContent')}
           value={`$${recs?.investment_summary?.total_spent?.toFixed(2) ?? '0'}`}
-          sub={`${recs?.investment_summary?.owned_tracks ?? 0} pistas`}
+          sub={t('dashboard.tracksCount', { count: recs?.investment_summary?.owned_tracks ?? 0 })}
           icon={DollarSign}
           trend="neutral"
         />
@@ -148,14 +150,14 @@ export function Dashboard() {
         const ownedCarsCount = allCars.filter((c: any) => c.owned).length;
         const ownedTracksCount = allTracks.filter((t: any) => t.owned).length;
         const pieData = [
-          { name: 'Autos', value: carSpend, color: '#60a5fa' },
-          { name: 'Pistas', value: trackSpend, color: '#34d399' },
+          { name: t('dashboard.cars'), value: carSpend, color: '#60a5fa' },
+          { name: t('dashboard.tracksLabel'), value: trackSpend, color: '#34d399' },
         ].filter((d) => d.value > 0);
 
         return (
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Contenido comprado</CardTitle>
+              <CardTitle className="text-sm">{t('dashboard.contentPurchased')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr]">
@@ -165,9 +167,9 @@ export function Dashboard() {
                       <Car size={16} className="text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Autos</p>
-                      <p className="text-lg font-bold">{ownedCars.length} <span className="text-xs font-normal text-muted-foreground">de {ownedCarsCount} que tenés</span></p>
-                      <p className="text-xs text-muted-foreground">${carSpend.toFixed(2)} gastados · {allCars.length} en catálogo</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.cars')}</p>
+                      <p className="text-lg font-bold">{ownedCars.length} <span className="text-xs font-normal text-muted-foreground">{t('dashboard.ofYouHave', { count: ownedCarsCount })}</span></p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.spentCatalog', { spend: carSpend.toFixed(2), total: allCars.length })}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -175,9 +177,9 @@ export function Dashboard() {
                       <MapPin size={16} className="text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Pistas</p>
-                      <p className="text-lg font-bold">{ownedTracks.length} <span className="text-xs font-normal text-muted-foreground">de {ownedTracksCount} que tenés</span></p>
-                      <p className="text-xs text-muted-foreground">${trackSpend.toFixed(2)} gastados · {allTracks.length} en catálogo</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.tracksLabel')}</p>
+                      <p className="text-lg font-bold">{ownedTracks.length} <span className="text-xs font-normal text-muted-foreground">{t('dashboard.ofYouHave', { count: ownedTracksCount })}</span></p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.spentCatalog', { spend: trackSpend.toFixed(2), total: allTracks.length })}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -185,9 +187,9 @@ export function Dashboard() {
                       <DollarSign size={16} className="text-amber-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total invertido</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.totalInvested')}</p>
                       <p className="text-lg font-bold">${total.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{ownedCars.length + ownedTracks.length} ítems pagos</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.paidItems', { count: ownedCars.length + ownedTracks.length })}</p>
                     </div>
                   </div>
                 </div>
@@ -222,7 +224,7 @@ export function Dashboard() {
                         <span className="font-semibold">{((d.value / total) * 100).toFixed(0)}%</span>
                       </div>
                     ))}
-                    <p className="text-muted-foreground pt-1">Distribución del gasto</p>
+                    <p className="text-muted-foreground pt-1">{t('dashboard.spendDistribution')}</p>
                   </div>
                 </div>
               </div>
@@ -234,7 +236,7 @@ export function Dashboard() {
       {/* iRating chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Evolución iRating</CardTitle>
+          <CardTitle className="text-sm">{t('dashboard.iratingEvolution')}</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={200}>
@@ -242,7 +244,7 @@ export function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="timestamp"
-                tickFormatter={(v) => new Date(v).toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })}
+                tickFormatter={(v) => new Date(v).toLocaleDateString(t('common.dateLocale'), { month: 'short', day: 'numeric' })}
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
               />
               <YAxis
@@ -252,7 +254,7 @@ export function Dashboard() {
               />
               <Tooltip
                 contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                labelFormatter={(v) => new Date(v).toLocaleDateString('es-AR')}
+                labelFormatter={(v) => new Date(v).toLocaleDateString(t('common.dateLocale'))}
               />
               <Line
                 type="monotone"
@@ -270,7 +272,7 @@ export function Dashboard() {
       {/* Last 5 races */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Últimas carreras</CardTitle>
+          <CardTitle className="text-sm">{t('dashboard.lastRaces')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
@@ -284,15 +286,15 @@ export function Dashboard() {
                   </div>
                   <div className="flex items-center gap-4 text-right">
                     <div>
-                      <p className="text-xs text-muted-foreground">Posición</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.position')}</p>
                       <p className="text-sm font-semibold">{r.finish_position}/{r.num_drivers}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Mejor vuelta</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.bestLap')}</p>
                       <p className="text-sm font-mono">{formatLapTime(r.best_lap_time)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">iR</p>
+                      <p className="text-xs text-muted-foreground">{t('dashboard.ir')}</p>
                       <p className={`text-sm font-semibold ${delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {delta >= 0 ? '+' : ''}{delta}
                       </p>

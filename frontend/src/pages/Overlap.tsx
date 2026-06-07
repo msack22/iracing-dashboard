@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/api/client';
 import {
@@ -6,7 +7,7 @@ import {
   RefreshCw, Trash2, DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CAR_GROUP_LABELS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
+import { CAR_GROUP_LABEL_KEYS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
 import { Search } from 'lucide-react';
 
 const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
@@ -79,12 +80,13 @@ function SeriesTag({ name, carType }: { name: string; carType: string }) {
 
 type CarFilter = 'all' | CarGroupKey;
 
-const CAR_FILTERS: { value: CarFilter; label: string; activeClass: string }[] = [
-  { value: 'all', label: 'Todas', activeClass: 'bg-primary text-primary-foreground' },
-  ...CAR_GROUP_ORDER.map((g) => ({ value: g as CarFilter, label: CAR_GROUP_LABELS[g], activeClass: GROUP_BADGE_CLASS[g] })),
+const CAR_FILTER_KEYS: { value: CarFilter; labelKey: string; activeClass: string }[] = [
+  { value: 'all', labelKey: 'overlap.filterAll', activeClass: 'bg-primary text-primary-foreground' },
+  ...CAR_GROUP_ORDER.map((g) => ({ value: g as CarFilter, labelKey: CAR_GROUP_LABEL_KEYS[g], activeClass: GROUP_BADGE_CLASS[g] })),
 ];
 
 export function Overlap() {
+  const { t } = useTranslation();
   const [allSeries, setAllSeries] = useState<SeriesOption[]>([]);
   const [carFilter, setCarFilter] = useState<CarFilter>('all');
   const [seriesSearch, setSeriesSearch] = useState('');
@@ -182,9 +184,9 @@ export function Overlap() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Análisis de Overlap</h1>
+            <h1 className="text-xl font-semibold">{t('overlap.title')}</h1>
             <p className="text-sm text-muted-foreground">
-              ¿Qué pistas comprar para correr más series con una sola compra?
+              {t('overlap.subtitle')}
             </p>
           </div>
           <button
@@ -192,16 +194,16 @@ export function Overlap() {
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <RefreshCw size={13} />
-            Actualizar
+            {t('overlap.refresh')}
           </button>
         </div>
 
         {/* Current week control */}
         <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium">Semana actual de temporada</p>
+            <p className="text-sm font-medium">{t('overlap.currentWeekTitle')}</p>
             <p className="text-xs text-muted-foreground">
-              Las pistas cuya ronda ya pasó esta temporada se ocultan del análisis: comprarlas ahora no te serviría para correr esta temporada.
+              {t('overlap.currentWeekDesc')}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -230,7 +232,7 @@ export function Overlap() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-sm font-medium shrink-0">
-                Series incluidas <span className="text-muted-foreground font-normal">({selected.size} seleccionadas)</span>
+                {t('overlap.seriesIncluded')} <span className="text-muted-foreground font-normal">{t('overlap.seriesSelected', { count: selected.size })}</span>
               </CardTitle>
               <div className="flex items-center gap-2">
                 <div className="relative">
@@ -238,14 +240,14 @@ export function Overlap() {
                   <input
                     value={seriesSearch}
                     onChange={(e) => setSeriesSearch(e.target.value)}
-                    placeholder="Buscar serie…"
+                    placeholder={t('overlap.searchSeriesPlaceholder')}
                     className="h-7 w-40 rounded-md border border-border bg-transparent pl-7 pr-2 text-xs outline-none focus:border-primary/50"
                   />
                 </div>
                 <button
                   onClick={() => setSelected((prev) => new Set([...prev, ...seriesOptions.map((s) => s.series_id)]))}
                   className="text-xs text-primary hover:underline shrink-0"
-                >Todas</button>
+                >{t('overlap.selectAll')}</button>
                 <span className="text-muted-foreground text-xs">·</span>
                 <button
                   onClick={() => setSelected((prev) => {
@@ -254,11 +256,11 @@ export function Overlap() {
                     return next;
                   })}
                   className="text-xs text-muted-foreground hover:underline shrink-0"
-                >Ninguna</button>
+                >{t('overlap.selectNone')}</button>
               </div>
             </div>
             <div className="flex gap-1.5 flex-wrap pt-1">
-              {CAR_FILTERS.map((f) => (
+              {CAR_FILTER_KEYS.map((f) => (
                 <button
                   key={f.value}
                   onClick={() => setCarFilter(f.value)}
@@ -268,7 +270,7 @@ export function Overlap() {
                       : 'border-border/50 text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                 </button>
               ))}
             </div>
@@ -305,12 +307,12 @@ export function Overlap() {
                 : 'border-border text-muted-foreground hover:border-primary/30'
             )}
           >
-            {showOwned ? '✓ Mostrando todas (incluso propias)' : 'Solo pistas a comprar'}
+            {showOwned ? t('overlap.showingAll') : t('overlap.onlyToBuy')}
           </button>
           <span className="text-xs text-muted-foreground">
-            {displayed.filter((t) => !t.owned).length} pistas por comprar
-            {displayed.filter((t) => t.owned).length > 0 && !showOwned ? '' :
-              showOwned ? ` · ${displayed.filter((t) => t.owned).length} ya propias` : ''}
+            {t('overlap.tracksToBuy', { count: displayed.filter((tr) => !tr.owned).length })}
+            {displayed.filter((tr) => tr.owned).length > 0 && !showOwned ? '' :
+              showOwned ? ` ${t('overlap.alreadyOwned', { count: displayed.filter((tr) => tr.owned).length })}` : ''}
           </span>
         </div>
 
@@ -321,13 +323,13 @@ export function Overlap() {
           </div>
         ) : (
           <div className="space-y-2">
-            {displayed.map((t) => {
-              const inWishlist = wishlist.has(t.track_id);
-              const barWidth = Math.round((t.series_count / maxCount) * 100);
+            {displayed.map((track) => {
+              const inWishlist = wishlist.has(track.track_id);
+              const barWidth = Math.round((track.series_count / maxCount) * 100);
               return (
-                <Card key={t.track_id} className={cn(
+                <Card key={track.track_id} className={cn(
                   'transition-colors',
-                  t.owned ? 'border-emerald-800/40 bg-emerald-950/10' : ''
+                  track.owned ? 'border-emerald-800/40 bg-emerald-950/10' : ''
                 )}>
                   <CardContent className="py-3 px-4">
                     <div className="flex items-center gap-3">
@@ -335,27 +337,27 @@ export function Overlap() {
                       <div className="w-8 shrink-0 text-center">
                         <span className={cn(
                           'text-lg font-bold',
-                          t.series_count >= 3 ? 'text-amber-400' :
-                          t.series_count === 2 ? 'text-blue-400' : 'text-muted-foreground'
+                          track.series_count >= 3 ? 'text-amber-400' :
+                          track.series_count === 2 ? 'text-blue-400' : 'text-muted-foreground'
                         )}>
-                          {t.series_count}
+                          {track.series_count}
                         </span>
-                        <p className="text-[9px] text-muted-foreground leading-none">series</p>
+                        <p className="text-[9px] text-muted-foreground leading-none">{t('overlap.seriesUnit')}</p>
                       </div>
 
                       {/* Main info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <FlagEmoji country={t.country} />
-                          <span className="text-sm font-medium truncate">{t.name}</span>
-                          {t.owned ? (
+                          <FlagEmoji country={track.country} />
+                          <span className="text-sm font-medium truncate">{track.name}</span>
+                          {track.owned ? (
                             <span className="flex items-center gap-0.5 text-[10px] text-emerald-400 font-medium">
-                              <CheckCircle2 size={10} /> Tenés
+                              <CheckCircle2 size={10} /> {t('overlap.owned')}
                             </span>
-                          ) : t.price === 0 ? (
-                            <span className="text-[10px] text-blue-400">Gratis</span>
+                          ) : track.price === 0 ? (
+                            <span className="text-[10px] text-blue-400">{t('overlap.free')}</span>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">${t.price.toFixed(2)}</span>
+                            <span className="text-[10px] text-muted-foreground">${track.price.toFixed(2)}</span>
                           )}
                         </div>
                         {/* Progress bar */}
@@ -363,24 +365,24 @@ export function Overlap() {
                           <div
                             className={cn(
                               'h-full rounded-full transition-all',
-                              t.owned ? 'bg-emerald-500' :
-                              t.series_count >= 3 ? 'bg-amber-400' : 'bg-blue-400'
+                              track.owned ? 'bg-emerald-500' :
+                              track.series_count >= 3 ? 'bg-amber-400' : 'bg-blue-400'
                             )}
                             style={{ width: `${barWidth}%` }}
                           />
                         </div>
                         {/* Series tags */}
                         <div className="mt-1.5 flex flex-wrap gap-1">
-                          {t.used_by.map((s) => (
+                          {track.used_by.map((s) => (
                             <SeriesTag key={s.series_id} name={s.series_name} carType={s.car_type} />
                           ))}
                         </div>
                       </div>
 
                       {/* Actions */}
-                      {!t.owned && (
+                      {!track.owned && (
                         <button
-                          onClick={() => toggleWishlist(t.track_id)}
+                          onClick={() => toggleWishlist(track.track_id)}
                           className={cn(
                             'shrink-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors',
                             inWishlist
@@ -389,7 +391,7 @@ export function Overlap() {
                           )}
                         >
                           <ShoppingCart size={11} />
-                          {inWishlist ? 'En lista' : 'Agregar'}
+                          {inWishlist ? t('overlap.inList') : t('overlap.addToList')}
                         </button>
                       )}
                     </div>
@@ -401,8 +403,8 @@ export function Overlap() {
               <Card>
                 <CardContent className="py-10 text-center text-sm text-muted-foreground">
                   {selected.size === 0
-                    ? 'Seleccioná al menos una serie para ver las pistas.'
-                    : 'No hay pistas pendientes de compra para las series seleccionadas.'}
+                    ? t('overlap.selectAtLeastOne')
+                    : t('overlap.noTracksPending')}
                 </CardContent>
               </Card>
             )}
@@ -417,13 +419,13 @@ export function Overlap() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <ShoppingCart size={14} />
-                Lista de compras
+                {t('overlap.wishlistTitle')}
               </CardTitle>
               {(summary?.total_items ?? 0) > 0 && (
                 <button
                   onClick={clearWishlist}
                   className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                  title="Vaciar lista"
+                  title={t('overlap.clearList')}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -433,7 +435,7 @@ export function Overlap() {
           <CardContent className="space-y-3">
             {!summary || summary.total_items === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">
-                Agregá pistas con el botón "Agregar" para calcular el costo.
+                {t('overlap.addTracksHint')}
               </p>
             ) : (
               <>
@@ -441,20 +443,20 @@ export function Overlap() {
                 {summary.tracks.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
-                      Pistas ({summary.tracks.length})
+                      {t('overlap.tracksLabel', { count: summary.tracks.length })}
                     </p>
-                    {summary.tracks.map((t) => (
-                      <div key={t.track_id} className="flex items-center justify-between gap-2">
+                    {summary.tracks.map((track) => (
+                      <div key={track.track_id} className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <FlagEmoji country={t.country} />
-                          <span className="text-xs truncate">{t.name}</span>
+                          <FlagEmoji country={track.country} />
+                          <span className="text-xs truncate">{track.name}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="text-xs text-muted-foreground">
-                            {t.price === 0 ? 'Free' : `$${t.price.toFixed(2)}`}
+                            {track.price === 0 ? t('overlap.free') : `$${track.price.toFixed(2)}`}
                           </span>
                           <button
-                            onClick={() => toggleWishlist(t.track_id)}
+                            onClick={() => toggleWishlist(track.track_id)}
                             className="text-muted-foreground hover:text-destructive transition-colors"
                           >
                             <XCircle size={12} />
@@ -469,7 +471,7 @@ export function Overlap() {
                 {summary.cars.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
-                      Autos ({summary.cars.length})
+                      {t('overlap.carsLabel', { count: summary.cars.length })}
                     </p>
                     {summary.cars.map((c) => (
                       <div key={c.car_id} className="flex items-center justify-between gap-2">
@@ -483,7 +485,7 @@ export function Overlap() {
                 {/* Total */}
                 <div className="border-t border-border pt-2 flex items-center justify-between">
                   <span className="text-sm font-medium flex items-center gap-1">
-                    <DollarSign size={12} /> Total
+                    <DollarSign size={12} /> {t('overlap.total')}
                   </span>
                   <span className="text-sm font-bold text-primary">
                     ${summary.total_cost.toFixed(2)}
@@ -494,7 +496,7 @@ export function Overlap() {
                 {summary.tracks.length > 0 && (
                   <div className="rounded-lg bg-muted/50 p-2">
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      Con esta compra desbloqueás más rondas en las series seleccionadas.
+                      {t('overlap.coverageHint')}
                     </p>
                   </div>
                 )}

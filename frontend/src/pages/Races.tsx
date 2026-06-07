@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/api/client';
 import { getCarGroup } from '@/lib/carGroups';
@@ -10,13 +11,14 @@ import {
 
 type CarFilter = 'all' | 'formula' | 'sport';
 
-const CAR_FILTERS: { value: CarFilter; label: string; activeClass: string }[] = [
-  { value: 'all',     label: 'Todos',         activeClass: 'bg-primary text-primary-foreground' },
-  { value: 'formula', label: '🏎️ Fórmula',   activeClass: 'bg-orange-500/20 text-orange-400 border border-orange-500/30' },
-  { value: 'sport',   label: '🚗 Sport Car',  activeClass: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
+const CAR_FILTER_KEYS: { value: CarFilter; labelKey: string; activeClass: string }[] = [
+  { value: 'all',     labelKey: 'races.filterAll',     activeClass: 'bg-primary text-primary-foreground' },
+  { value: 'formula', labelKey: 'races.filterFormula', activeClass: 'bg-orange-500/20 text-orange-400 border border-orange-500/30' },
+  { value: 'sport',   labelKey: 'races.filterSport',   activeClass: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
 ];
 
 export function Races() {
+  const { t } = useTranslation();
   const [allRaces, setAllRaces] = useState<any[]>([]);
   const [carFilter, setCarFilter] = useState<CarFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -42,8 +44,10 @@ export function Races() {
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Carreras</h1>
-          <p className="text-sm text-muted-foreground">{races.length} carreras{carFilter !== 'all' ? ' en esta categoría' : ' recientes'}</p>
+          <h1 className="text-xl font-semibold">{t('races.title')}</h1>
+          <p className="text-sm text-muted-foreground">
+            {carFilter !== 'all' ? t('races.subtitleFiltered', { count: races.length }) : t('races.subtitleRecent', { count: races.length })}
+          </p>
         </div>
         <Flag size={20} className="text-muted-foreground" />
       </div>
@@ -52,7 +56,7 @@ export function Races() {
       <div className="flex items-center gap-2">
         <Filter size={13} className="text-muted-foreground shrink-0" />
         <div className="flex gap-1.5 flex-wrap">
-          {CAR_FILTERS.map((f) => (
+          {CAR_FILTER_KEYS.map((f) => (
             <button
               key={f.value}
               onClick={() => setCarFilter(f.value)}
@@ -62,7 +66,7 @@ export function Races() {
                   : 'border-border text-muted-foreground hover:bg-accent'
               }`}
             >
-              {f.label}
+              {t(f.labelKey)}
             </button>
           ))}
         </div>
@@ -72,7 +76,7 @@ export function Races() {
       {races.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Incidentes por carrera</CardTitle>
+            <CardTitle className="text-sm">{t('races.incidentsPerRace')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={150}>
@@ -98,7 +102,7 @@ export function Races() {
       ) : races.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No hay carreras registradas para {carFilter === 'formula' ? 'Fórmula' : 'Sport Car'}.
+            {t('races.noRacesFor', { category: carFilter === 'formula' ? t('races.categoryFormula') : t('races.categorySport') })}
           </CardContent>
         </Card>
       ) : (
@@ -108,13 +112,13 @@ export function Races() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fecha</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Serie / Pista</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Auto</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Pos.</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Mejor vuelta</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">iR</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Inc.</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('races.tableDate')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('races.tableSeriesTrack')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('races.tableCar')}</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">{t('races.tablePos')}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('races.tableBestLap')}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('races.tableIr')}</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">{t('races.tableInc')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -124,7 +128,7 @@ export function Races() {
                     return (
                       <tr key={r.subsession_id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(r.start_time).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                          {new Date(r.start_time).toLocaleDateString(t('common.dateLocale'), { day: '2-digit', month: 'short' })}
                         </td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{r.track_name}</div>

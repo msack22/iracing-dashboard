@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
-import { CAR_GROUP_LABELS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
+import { CAR_GROUP_LABEL_KEYS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
 
 const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
   formula: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
@@ -17,9 +18,10 @@ import { Calendar, Car, MapPin, CheckCircle2, XCircle, Filter } from 'lucide-rea
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function TrackDot({ track }: { track: any }) {
+  const { t } = useTranslation();
   return (
     <div
-      title={`${track.name} · ${track.owned ? 'Tenés' : `$${track.price}`}`}
+      title={`${track.name} · ${track.owned ? t('seriesCalendar.trackOwned') : `$${track.price}`}`}
       className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs ${
         track.owned
           ? 'bg-emerald-500/10 text-emerald-400'
@@ -34,7 +36,13 @@ function TrackDot({ track }: { track: any }) {
 }
 
 function SeriesCard({ series }: { series: any }) {
+  const { t } = useTranslation();
   const group = getCarGroupKey(series.car_type, series.series_name);
+
+  const missingParts = [
+    series.missing_cars.length > 0 ? t('seriesCalendar.missingCarsCount', { count: series.missing_cars.length }) : '',
+    series.missing_tracks.length > 0 ? t('seriesCalendar.missingTracksCount', { count: series.missing_tracks.length }) : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <Card className={`transition-all hover:border-primary/30 ${
@@ -45,7 +53,7 @@ function SeriesCard({ series }: { series: any }) {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className={`text-xs ${GROUP_BADGE_CLASS[group]}`}>
-                {CAR_GROUP_LABELS[group]}
+                {t(CAR_GROUP_LABEL_KEYS[group])}
               </Badge>
               <Badge variant="outline" className="text-xs">{series.car_type}</Badge>
             </div>
@@ -60,8 +68,8 @@ function SeriesCard({ series }: { series: any }) {
 
         <p className={`text-xs font-medium ${series.can_race ? 'text-emerald-400' : 'text-amber-400'}`}>
           {series.can_race
-            ? 'Listo para correr'
-            : `Faltan: ${series.missing_cars.length > 0 ? `${series.missing_cars.length} auto(s)` : ''} ${series.missing_tracks.length > 0 ? `· ${series.missing_tracks.length} pista(s)` : ''}`
+            ? t('seriesCalendar.readyToRace')
+            : `${t('seriesCalendar.missingPrefix')} ${missingParts}`
           }
         </p>
       </CardHeader>
@@ -70,7 +78,7 @@ function SeriesCard({ series }: { series: any }) {
         {/* Cars */}
         <div>
           <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
-            <Car size={11} /> Autos ({series.owned_cars_count}/{series.cars.length} propios)
+            <Car size={11} /> {t('seriesCalendar.ownCars', { owned: series.owned_cars_count, total: series.cars.length })}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {series.cars.map((car: any) => (
@@ -91,7 +99,7 @@ function SeriesCard({ series }: { series: any }) {
         {/* Tracks */}
         <div>
           <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
-            <MapPin size={11} /> Pistas esta temporada ({series.owned_tracks_count}/{series.season_tracks.length})
+            <MapPin size={11} /> {t('seriesCalendar.seasonTracks', { owned: series.owned_tracks_count, total: series.season_tracks.length })}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {series.season_tracks.map((t: any) => (
@@ -103,7 +111,7 @@ function SeriesCard({ series }: { series: any }) {
         {/* Missing items summary */}
         {!series.can_race && (series.missing_cars.length > 0 || series.missing_tracks.length > 0) && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 space-y-1">
-            <p className="text-xs font-medium text-amber-400">Para poder correr necesitás:</p>
+            <p className="text-xs font-medium text-amber-400">{t('seriesCalendar.needToRace')}</p>
             {series.missing_cars.map((c: any) => (
               <p key={c.car_id} className="text-xs text-muted-foreground">
                 🏎️ {c.name} — <span className="text-foreground">${c.price}</span>
@@ -116,7 +124,7 @@ function SeriesCard({ series }: { series: any }) {
             ))}
             {series.missing_tracks.length > 3 && (
               <p className="text-xs text-muted-foreground">
-                + {series.missing_tracks.length - 3} pistas más…
+                {t('seriesCalendar.moreTracksEllipsis', { count: series.missing_tracks.length - 3 })}
               </p>
             )}
           </div>
@@ -130,12 +138,13 @@ function SeriesCard({ series }: { series: any }) {
 
 type CarFilter = 'all' | CarGroupKey;
 
-const CAR_FILTERS: { value: CarFilter; label: string; activeClass: string }[] = [
-  { value: 'all', label: 'Todas', activeClass: 'bg-primary text-primary-foreground' },
-  ...CAR_GROUP_ORDER.map((g) => ({ value: g as CarFilter, label: CAR_GROUP_LABELS[g], activeClass: GROUP_BADGE_CLASS[g] })),
+const CAR_FILTER_KEYS: { value: CarFilter; labelKey: string; activeClass: string }[] = [
+  { value: 'all', labelKey: 'seriesCalendar.filterAll', activeClass: 'bg-primary text-primary-foreground' },
+  ...CAR_GROUP_ORDER.map((g) => ({ value: g as CarFilter, labelKey: CAR_GROUP_LABEL_KEYS[g], activeClass: GROUP_BADGE_CLASS[g] })),
 ];
 
 export function SeriesCalendar() {
+  const { t } = useTranslation();
   const [allSeries, setAllSeries] = useState<any[]>([]);
   const [carFilter, setCarFilter] = useState<CarFilter>('all');
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -167,9 +176,9 @@ export function SeriesCalendar() {
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Calendario de Series</h1>
+          <h1 className="text-xl font-semibold">{t('seriesCalendar.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            {readyCount}/{groupFiltered.length} series listas para correr con tu contenido actual
+            {t('seriesCalendar.subtitle', { ready: readyCount, total: groupFiltered.length })}
           </p>
         </div>
         <Calendar size={20} className="text-muted-foreground" />
@@ -182,7 +191,7 @@ export function SeriesCalendar() {
             <Filter size={13} className="text-muted-foreground shrink-0" />
             <div className="flex gap-1.5 flex-wrap">
               {/* Car class filter */}
-              {CAR_FILTERS.map((f) => (
+              {CAR_FILTER_KEYS.map((f) => (
                 <button
                   key={f.value}
                   onClick={() => setCarFilter(f.value)}
@@ -192,7 +201,7 @@ export function SeriesCalendar() {
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                 </button>
               ))}
               {/* "Solo listas" toggle */}
@@ -204,7 +213,7 @@ export function SeriesCalendar() {
                     : 'border-border text-muted-foreground hover:bg-accent'
                 }`}
               >
-                ✓ Solo listas para correr
+                {t('seriesCalendar.readyOnly')}
               </button>
             </div>
           </div>
@@ -243,7 +252,7 @@ export function SeriesCalendar() {
           ))}
           {filtered.length === 0 && (
             <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
-              No hay series con los filtros seleccionados.
+              {t('seriesCalendar.noResults')}
             </div>
           )}
         </div>

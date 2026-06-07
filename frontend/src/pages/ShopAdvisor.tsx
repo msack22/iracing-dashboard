@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
@@ -7,17 +8,18 @@ import { TrendingUp, DollarSign, Car, MapPin } from 'lucide-react';
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function BundleCard({ bundle, index }: { bundle: any; index: number }) {
+  const { t } = useTranslation();
   return (
     <Card className="border-primary/20">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Bundle #{index + 1}</CardTitle>
+          <CardTitle className="text-sm">{t('shopAdvisor.bundleTitle', { index: index + 1 })}</CardTitle>
           <Badge variant="success">{(bundle.discount_pct * 100).toFixed(0)}% OFF</Badge>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-muted-foreground line-through text-sm">${bundle.total_price}</span>
           <span className="text-xl font-bold text-primary">${bundle.final_price}</span>
-          <span className="text-xs text-emerald-400">Ahorrás ${bundle.savings}</span>
+          <span className="text-xs text-emerald-400">{t('shopAdvisor.save', { amount: bundle.savings })}</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -37,7 +39,7 @@ function BundleCard({ bundle, index }: { bundle: any; index: number }) {
               )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0 ml-2">
-              <span>{item.series_count} series</span>
+              <span>{t('shopAdvisor.seriesCount', { count: item.series_count })}</span>
               <span className="font-medium text-foreground">${item.price}</span>
             </div>
           </div>
@@ -48,6 +50,7 @@ function BundleCard({ bundle, index }: { bundle: any; index: number }) {
 }
 
 function TopItemRow({ item, rank }: { item: any; rank: number }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -64,7 +67,7 @@ function TopItemRow({ item, rank }: { item: any; rank: number }) {
       <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
         <span className="flex items-center gap-1">
           <TrendingUp size={11} />
-          {item.series_count} series
+          {t('shopAdvisor.seriesCount', { count: item.series_count })}
         </span>
         <span className="font-medium text-foreground">${item.price}</span>
       </div>
@@ -75,6 +78,7 @@ function TopItemRow({ item, rank }: { item: any; rank: number }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function ShopAdvisor() {
+  const { t } = useTranslation();
   const [data, setData] = useState<any>(null);
   const [bundleSize, setBundleSize] = useState(3);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -115,9 +119,9 @@ export function ShopAdvisor() {
 
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold">Shop Advisor</h1>
+        <h1 className="text-xl font-semibold">{t('shopAdvisor.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Optimizá tus compras según las categorías que querés correr
+          {t('shopAdvisor.subtitle')}
         </p>
       </div>
 
@@ -128,7 +132,7 @@ export function ShopAdvisor() {
           {/* Car type selector */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Categoría que querés correr
+              {t('shopAdvisor.categoryLabel')}
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -139,7 +143,7 @@ export function ShopAdvisor() {
                     : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
-                Todas
+                {t('shopAdvisor.filterAll')}
               </button>
               {availableTypes.map((type) => (
                 <button
@@ -160,7 +164,7 @@ export function ShopAdvisor() {
           {/* Series shown */}
           {selectedTypes.length > 0 && data?.selected_series?.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Series incluidas en el calendario:</p>
+              <p className="text-xs text-muted-foreground">{t('shopAdvisor.seriesIncluded')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {data.selected_series.map((s: any) => (
                   <Badge key={s.series_name} variant="outline" className="text-xs">
@@ -174,7 +178,7 @@ export function ShopAdvisor() {
           <div className="flex items-center gap-6 pt-1 border-t border-border">
             {/* Bundle size */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Bundle:</span>
+              <span className="text-xs text-muted-foreground">{t('shopAdvisor.bundleLabel')}</span>
               {[3, 6].map((n) => (
                 <button
                   key={n}
@@ -185,14 +189,14 @@ export function ShopAdvisor() {
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {n} items ({n === 3 ? '10%' : '15%'} OFF)
+                  {t('shopAdvisor.bundleItems', { count: n, discount: n === 3 ? '10%' : '15%' })}
                 </button>
               ))}
             </div>
 
             {/* Include cars toggle */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Incluir autos:</span>
+              <span className="text-xs text-muted-foreground">{t('shopAdvisor.includeCarsLabel')}</span>
               <button
                 onClick={() => handleIncludeCars(!includeCars)}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
@@ -204,7 +208,7 @@ export function ShopAdvisor() {
                 }`} />
               </button>
               <span className="text-xs text-muted-foreground">
-                {includeCars ? 'Sí' : 'Solo pistas'}
+                {includeCars ? t('shopAdvisor.includeCarsYes') : t('shopAdvisor.includeCarsNo')}
               </span>
             </div>
           </div>
@@ -220,7 +224,7 @@ export function ShopAdvisor() {
                 <DollarSign size={15} className="text-primary" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Total invertido</p>
+                <p className="text-xs text-muted-foreground">{t('shopAdvisor.totalInvested')}</p>
                 <p className="text-lg font-bold">${data.investment_summary.total_spent}</p>
               </div>
             </CardContent>
@@ -231,7 +235,7 @@ export function ShopAdvisor() {
                 <Car size={15} className="text-muted-foreground" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Autos propios</p>
+                <p className="text-xs text-muted-foreground">{t('shopAdvisor.ownedCars')}</p>
                 <p className="text-lg font-bold">{data.investment_summary.owned_cars}</p>
               </div>
             </CardContent>
@@ -242,7 +246,7 @@ export function ShopAdvisor() {
                 <MapPin size={15} className="text-muted-foreground" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Pistas propias</p>
+                <p className="text-xs text-muted-foreground">{t('shopAdvisor.ownedTracks')}</p>
                 <p className="text-lg font-bold">{data.investment_summary.owned_tracks}</p>
               </div>
             </CardContent>
@@ -257,9 +261,9 @@ export function ShopAdvisor() {
       ) : data?.top_items?.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No hay contenido para comprar con los filtros seleccionados.
+            {t('shopAdvisor.noContent')}
             <br />
-            <span className="text-xs">Puede que ya tengas todo lo necesario para esa categoría.</span>
+            <span className="text-xs">{t('shopAdvisor.mayHaveEverything')}</span>
           </CardContent>
         </Card>
       ) : (
@@ -267,7 +271,7 @@ export function ShopAdvisor() {
           {/* Bundles */}
           <div className="space-y-4">
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Bundles recomendados
+              {t('shopAdvisor.recommendedBundles')}
             </h2>
             {data?.bundles?.length > 0
               ? data.bundles.map((b: any, i: number) => (
@@ -275,7 +279,7 @@ export function ShopAdvisor() {
                 ))
               : (
                 <p className="text-sm text-muted-foreground">
-                  No hay suficientes items para armar un bundle de {bundleSize}.
+                  {t('shopAdvisor.notEnoughItems', { size: bundleSize })}
                 </p>
               )
             }
@@ -284,7 +288,7 @@ export function ShopAdvisor() {
           {/* Top items by value */}
           <div>
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-              Mejor valor · por cantidad de series
+              {t('shopAdvisor.bestValue')}
             </h2>
             <Card>
               <CardContent className="p-4">
