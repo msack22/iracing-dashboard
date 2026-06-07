@@ -16,6 +16,7 @@ from infrastructure.storage.schedule_store import (
     get_all_series as schedule_get_all_series,
     upsert_series, set_series_tracks, delete_series,
     get_wishlist, wishlist_add, wishlist_remove, wishlist_clear,
+    get_current_week, set_current_week,
 )
 from pydantic import BaseModel
 
@@ -497,23 +498,27 @@ def create_app(
         """
         Devuelve tracks ordenadas por cuántas series las usan.
         Si series_ids está vacío, usa todas las series.
+        Sólo cuenta rondas de la semana actual en adelante: si una pista ya
+        corrió su ronda esta temporada, comprarla ahora no suma valor.
         Útil para decidir qué pistas comprar para correr más series.
         """
         all_tracks = await tracks_repo.get_all_tracks()
         manual = get_all_overrides()
         owned_tracks_manual = set(manual["tracks"])
         track_map = {t.track_id: t for t in all_tracks}
+        current_week = get_current_week()
 
         series_list = schedule_get_all_series()
         if series_ids:
             series_list = [s for s in series_list if s["series_id"] in series_ids]
 
-        # track_id → lista de series que la usan
+        # track_id → lista de series que la usan (sólo rondas que todavía no corrieron)
         track_series: dict[int, list[dict]] = {}
         for s in series_list:
-            track_ids = [t["track_id"] for t in s.get("tracks", [])]
-            for tid in track_ids:
-                track_series.setdefault(tid, []).append({
+            for t in s.get("tracks", []):
+                if t.get("round_num", 0) and t["round_num"] < current_week:
+                    continue
+                track_series.setdefault(t["track_id"], []).append({
                     "series_id": s["series_id"],
                     "series_name": s["series_name"],
                     "car_type": s["car_type"],
@@ -536,7 +541,20 @@ def create_app(
             })
 
         result.sort(key=lambda x: (-x["series_count"], x["owned"], x["name"]))
-        return {"data": result}
+        return {"data": result, "current_week": current_week}
+
+    # ── App settings ──────────────────────────────────────────────────────────
+    @app.get("/api/settings/current-week")
+    async def get_current_week_endpoint():
+        return {"data": {"current_week": get_current_week()}}
+
+    class CurrentWeekBody(BaseModel):
+        week: int
+
+    @app.post("/api/settings/current-week")
+    async def set_current_week_endpoint(body: CurrentWeekBody):
+        set_current_week(body.week)
+        return {"ok": True, "current_week": get_current_week()}
 
     # ── Wishlist ──────────────────────────────────────────────────────────────
     @app.get("/api/wishlist")

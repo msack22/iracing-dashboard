@@ -94,6 +94,12 @@ export function Overlap() {
   const [summary, setSummary] = useState<WishlistSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [showOwned, setShowOwned] = useState(false);
+  const [currentWeek, setCurrentWeek] = useState<number | null>(null);
+
+  // Load current race week
+  useEffect(() => {
+    api.settings.getCurrentWeek().then((d) => setCurrentWeek(d.current_week));
+  }, []);
 
   // Series filtradas localmente por categoría de auto (Fórmula/GT & Sport/Oval/Dirt/Rallycross/Todas) y búsqueda
   const sq = seriesSearch.trim().toLowerCase();
@@ -135,6 +141,13 @@ export function Overlap() {
   }, [selected]);
 
   useEffect(() => { if (seriesOptions.length) loadOverlap(); }, [loadOverlap, seriesOptions.length]);
+
+  const updateCurrentWeek = async (week: number) => {
+    if (week < 1) return;
+    setCurrentWeek(week);
+    await api.settings.setCurrentWeek(week);
+    loadOverlap();
+  };
 
   const toggleSeries = (id: number) => {
     setSelected((prev) => {
@@ -181,6 +194,35 @@ export function Overlap() {
             <RefreshCw size={13} />
             Actualizar
           </button>
+        </div>
+
+        {/* Current week control */}
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Semana actual de temporada</p>
+            <p className="text-xs text-muted-foreground">
+              Las pistas cuya ronda ya pasó esta temporada se ocultan del análisis: comprarlas ahora no te serviría para correr esta temporada.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => currentWeek != null && updateCurrentWeek(currentWeek - 1)}
+              disabled={currentWeek == null || currentWeek <= 1}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+            >
+              −
+            </button>
+            <span className="w-8 text-center text-sm font-semibold tabular-nums">
+              {currentWeek ?? '—'}
+            </span>
+            <button
+              onClick={() => currentWeek != null && updateCurrentWeek(currentWeek + 1)}
+              disabled={currentWeek == null}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         {/* Series filter */}

@@ -36,6 +36,12 @@ def _conn() -> sqlite3.Connection:
         )
     """)
     con.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+    con.execute("""
         CREATE TABLE IF NOT EXISTS wishlist (
             item_type TEXT NOT NULL,
             item_id   INTEGER NOT NULL,
@@ -214,3 +220,28 @@ def wishlist_remove(item_type: str, item_id: int) -> None:
 def wishlist_clear() -> None:
     with _conn() as con:
         con.execute("DELETE FROM wishlist")
+
+
+# ── App settings ──────────────────────────────────────────────────────────────
+
+def get_setting(key: str, default: str | None = None) -> str | None:
+    with _conn() as con:
+        row = con.execute("SELECT value FROM app_settings WHERE key=?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    with _conn() as con:
+        con.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value)
+        )
+
+
+def get_current_week() -> int:
+    return int(get_setting("current_week", "1"))
+
+
+def set_current_week(week: int) -> None:
+    set_setting("current_week", str(max(1, week)))

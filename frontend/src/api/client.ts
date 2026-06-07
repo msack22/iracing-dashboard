@@ -84,6 +84,10 @@ export const api = {
     setCar: (id: number, owned: boolean) => put('/owned/car/' + id, { owned }),
     setTrack: (id: number, owned: boolean) => put('/owned/track/' + id, { owned }),
   },
+  settings: {
+    getCurrentWeek: () => get<{ current_week: number }>('/settings/current-week'),
+    setCurrentWeek: (week: number) => post<{ ok: boolean; current_week: number }>('/settings/current-week', { week }),
+  },
   recommendations: {
     get: (bundleSize = 3, carTypes: string[] = [], includeCars = true) => {
       const url = new URL('/api/recommendations', window.location.origin);
