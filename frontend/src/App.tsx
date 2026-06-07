@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { RacingModeProvider } from '@/context/RacingModeContext';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Setup } from '@/pages/Setup';
 import { Dashboard } from '@/pages/Dashboard';
@@ -9,6 +8,9 @@ import { Tracks } from '@/pages/Tracks';
 import { SeriesCalendar } from '@/pages/SeriesCalendar';
 import { ShopAdvisor } from '@/pages/ShopAdvisor';
 import { Races } from '@/pages/Races';
+import { RacesBySeries } from '@/pages/RacesBySeries';
+import { Overlap } from '@/pages/Overlap';
+import { Settings } from '@/pages/Settings';
 import { api } from '@/api/client';
 
 function AppShell({ onLogout }: { onLogout: () => void }) {
@@ -23,6 +25,9 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
           <Route path="/calendar"  element={<SeriesCalendar />} />
           <Route path="/shop"      element={<ShopAdvisor />} />
           <Route path="/races"     element={<Races />} />
+          <Route path="/races/by-series" element={<RacesBySeries />} />
+          <Route path="/overlap"       element={<Overlap />} />
+          <Route path="/settings"      element={<Settings />} />
         </Routes>
       </main>
     </div>
@@ -50,9 +55,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <RacingModeProvider>
-        <AppShell onLogout={() => setConfigured(false)} />
-      </RacingModeProvider>
+      <AppShell onLogout={() => setConfigured(false)} />
     </BrowserRouter>
   );
 }

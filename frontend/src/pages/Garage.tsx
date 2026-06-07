@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { api } from '@/api/client';
-import { Car, Filter } from 'lucide-react';
+import { Car, Filter, Check, Plus, Search } from 'lucide-react';
+import { CAR_GROUP_LABELS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
 
-const CATEGORIES = ['Todos', 'road', 'oval', 'dirt_road', 'dirt_oval'] as const;
 const CAT_LABEL: Record<string, string> = { road: 'Road', oval: 'Oval', dirt_road: 'Dirt Road', dirt_oval: 'Dirt Oval' };
+const GROUP_FILTERS: { value: 'Todos' | CarGroupKey; label: string }[] = [
+  { value: 'Todos', label: 'Todos' },
+  ...CAR_GROUP_ORDER.map((g) => ({ value: g, label: CAR_GROUP_LABELS[g] })),
+];
 
-// Map car_class_name to a short display label
 function carTypeLabel(carClassName: string, carName: string): string {
   const name = (carClassName || carName).toLowerCase();
   if (name.includes('f4') || name.includes('formula 4')) return 'F4';
@@ -26,12 +30,12 @@ function carTypeLabel(carClassName: string, carName: string): string {
   return carClassName || '—';
 }
 
-function CarCard({ car }: { car: any }) {
+function CarCard({ car, onToggle }: { car: any; onToggle: (id: number, owned: boolean) => void }) {
   const isFree = car.price === 0;
   const typeLabel = carTypeLabel(car.car_class_name, car.name);
 
   return (
-    <Card className="overflow-hidden transition-all hover:border-primary/40">
+    <Card className={`overflow-hidden transition-all ${car.owned ? 'border-emerald-500/30' : 'border-border hover:border-primary/40'}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 min-w-0">
@@ -44,10 +48,22 @@ function CarCard({ car }: { car: any }) {
             {isFree ? 'Gratis' : `$${car.price}`}
           </Badge>
         </div>
-        <div className="mt-3">
+        <div className="mt-3 flex items-center justify-between">
           <Badge variant="secondary" className="text-xs font-medium">
             {typeLabel}
           </Badge>
+          <button
+            onClick={() => onToggle(car.car_id, !car.owned)}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              car.owned
+                ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
+                : 'bg-muted text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-400'
+            }`}
+            title={car.owned ? 'Marcar como no tenés' : 'Marcar como tenés'}
+          >
+            {car.owned ? <Check size={11} /> : <Plus size={11} />}
+            {car.owned ? 'Tenés' : 'No tenés'}
+          </button>
         </div>
       </CardContent>
     </Card>
@@ -56,47 +72,93 @@ function CarCard({ car }: { car: any }) {
 
 export function Garage() {
   const [cars, setCars] = useState<any[]>([]);
-  const [filter, setFilter] = useState('Todos');
+  const [filter, setFilter] = useState<'Todos' | CarGroupKey>('Todos');
+  const [showAll, setShowAll] = useState(false);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.cars.all(true).then((data) => {
-      setCars(data);
-      setLoading(false);
-    });
+  const loadCars = useCallback(async () => {
+    const [allCars, ownedData] = await Promise.all([
+      api.cars.all(false),
+      api.owned.get(),
+    ]);
+    const ownedSet = new Set(ownedData.cars);
+    setCars(allCars.map((c: any) => ({
+      ...c,
+      owned: c.owned || ownedSet.has(c.car_id),
+    })));
+    setLoading(false);
   }, []);
 
-  const filtered = filter === 'Todos' ? cars : cars.filter((c) => c.categories.includes(filter));
+  useEffect(() => { loadCars(); }, [loadCars]);
+
+  const handleToggle = async (carId: number, owned: boolean) => {
+    await api.owned.setCar(carId, owned);
+    setCars((prev) => prev.map((c) => c.car_id === carId ? { ...c, owned } : c));
+  };
+
+  const q = search.trim().toLowerCase();
+  const visible = (showAll ? cars : cars.filter((c) => c.owned))
+    .filter((c) => filter === 'Todos' || getCarGroupKey(c.car_class_name, c.name) === filter)
+    .filter((c) => !q || c.name.toLowerCase().includes(q) || c.car_class_name?.toLowerCase().includes(q));
+
+  const ownedCount = cars.filter((c) => c.owned).length;
 
   return (
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Mi Garage</h1>
-          <p className="text-sm text-muted-foreground">{cars.length} autos en tu colección</p>
+          <p className="text-sm text-muted-foreground">{ownedCount} autos en tu colección · {cars.length} en total</p>
         </div>
         <Car size={20} className="text-muted-foreground" />
       </div>
 
-      {/* Category filter */}
-      <div className="flex items-center gap-2">
-        <Filter size={14} className="text-muted-foreground" />
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1.5 flex-wrap">
-          {CATEGORIES.map((cat) => (
+          {GROUP_FILTERS.map((g) => (
             <button
-              key={cat}
-              onClick={() => setFilter(cat)}
+              key={g.value}
+              onClick={() => setFilter(g.value)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                filter === cat
+                filter === g.value
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-secondary text-secondary-foreground hover:bg-accent'
               }`}
             >
-              {cat === 'Todos' ? 'Todos' : CAT_LABEL[cat]}
+              {g.label}
             </button>
           ))}
         </div>
+        <div className="relative shrink-0 w-full sm:w-56 sm:ml-auto">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar auto o clase…"
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+        <div>
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              showAll ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'
+            }`}
+          >
+            <Filter size={12} />
+            {showAll ? 'Ver los que tenés' : 'Ver todos'}
+          </button>
+        </div>
       </div>
+
+      {/* Info banner */}
+      {!loading && (
+        <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+          Hacé click en "No tenés" para marcar manualmente los autos que compraste. Esto persiste aunque la API de iRacing no esté disponible.
+        </p>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -104,12 +166,12 @@ export function Garage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((car) => (
-            <CarCard key={car.car_id} car={car} />
+          {visible.map((car) => (
+            <CarCard key={car.car_id} car={car} onToggle={handleToggle} />
           ))}
-          {filtered.length === 0 && (
+          {visible.length === 0 && (
             <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
-              No hay autos en esta categoría
+              {q ? `Ningún auto coincide con "${search}"` : 'No hay autos para mostrar'}
             </div>
           )}
         </div>

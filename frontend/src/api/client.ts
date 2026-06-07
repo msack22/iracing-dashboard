@@ -27,6 +27,16 @@ async function del<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(BASE + path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
 export const api = {
   auth: {
     status: () => get<{ configured: boolean }>('/auth/status'),
@@ -45,9 +55,34 @@ export const api = {
   },
   races: {
     recent: (count = 20) => get<any[]>('/races/recent', { count }),
+    bySeries: (count = 50) => get<any[]>('/races/by-series', { count }),
   },
   series: {
     all: () => get<any[]>('/series'),
+    seed: () => post('/series/seed', {}),
+    update: (id: number, payload: object) => put('/series/' + id, payload),
+    remove: (id: number) => del('/series/' + id),
+  },
+  overlap: {
+    get: (seriesIds?: number[]) => {
+      const url = new URL('/api/overlap', window.location.origin);
+      if (seriesIds?.length) seriesIds.forEach((id) => url.searchParams.append('series_ids', String(id)));
+      return fetch(url.toString()).then((r) => r.json()).then((j) => j.data ?? j);
+    },
+  },
+  wishlist: {
+    get: () => get<{ cars: number[]; tracks: number[] }>('/wishlist'),
+    summary: () => get<any>('/wishlist/summary'),
+    addTrack: (id: number) => post('/wishlist/track/' + id, {}),
+    removeTrack: (id: number) => del('/wishlist/track/' + id),
+    addCar: (id: number) => post('/wishlist/car/' + id, {}),
+    removeCar: (id: number) => del('/wishlist/car/' + id),
+    clear: () => del('/wishlist'),
+  },
+  owned: {
+    get: () => get<{ cars: number[]; tracks: number[] }>('/owned'),
+    setCar: (id: number, owned: boolean) => put('/owned/car/' + id, { owned }),
+    setTrack: (id: number, owned: boolean) => put('/owned/track/' + id, { owned }),
   },
   recommendations: {
     get: (bundleSize = 3, carTypes: string[] = [], includeCars = true) => {

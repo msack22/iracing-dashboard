@@ -1,9 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { api } from '@/api/client';
-import { ShoppingCart, TrendingUp, DollarSign, Package, Car, MapPin } from 'lucide-react';
+import { TrendingUp, DollarSign, Car, MapPin } from 'lucide-react';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 

@@ -8,3 +8,5 @@ venv/
 .venv/
 dist/
 *.egg-info/
+infrastructure/iracing/mock/mock_data_personal.py
+*.db

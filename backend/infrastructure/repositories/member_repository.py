@@ -1,15 +1,13 @@
-from __future__ import annotations
-from typing import Dict, List, Optional
 from domain.entities.member import Member, License, LicenseCategory
 from domain.repositories.i_member_repository import IMemberRepository
 from infrastructure.iracing.mock.mock_data import MOCK_MEMBER, MOCK_IRATING_HISTORY
 
 
 class MockMemberRepository(IMemberRepository):
-    async def get_member_profile(self, cust_id: Optional[int] = None) -> Member:
+    async def get_member_profile(self, cust_id: int | None = None) -> Member:
         return MOCK_MEMBER
 
-    async def get_irating_history(self, cust_id: Optional[int] = None, category: str = "road") -> List[Dict]:
+    async def get_irating_history(self, cust_id: int | None = None, category: str = "road") -> list[dict]:
         return MOCK_IRATING_HISTORY
 
 
@@ -18,9 +16,13 @@ class IracingMemberRepository(IMemberRepository):
         self._client = client
         self._cust_id = default_cust_id
 
-    async def get_member_profile(self, cust_id: Optional[int] = None) -> Member:
+    async def get_member_profile(self, cust_id: int | None = None) -> Member:
         cid = cust_id or self._cust_id
-        info = self._client.get_member_info()
+        try:
+            info = self._client.member_info()
+        except Exception as e:
+            print(f"[member] Error fetching member_info: {e}")
+            return MOCK_MEMBER
         licenses_raw = info.get("licenses", [])
         licenses = []
         for lic in licenses_raw:
@@ -47,10 +49,15 @@ class IracingMemberRepository(IMemberRepository):
             last_login=info.get("last_login", ""),
         )
 
-    async def get_irating_history(self, cust_id: Optional[int] = None, category: str = "road") -> List[Dict]:
+    async def get_irating_history(self, cust_id: int | None = None, category: str = "road") -> list[dict]:
         cid = cust_id or self._cust_id
         try:
-            data = self._client.stats_member_chart_data(cust_id=cid, category_id=2, chart_type=1)
-            return [{"timestamp": p["when"], "irating": p["value"]} for p in data.get("data", {}).get("chunk_info", [])]
-        except Exception:
+            # category_id: 2=Road, 5=Sports Car, 6=Formula Car; chart_type 1=iRating
+            data = self._client.member_chart_data(cust_id=cid, category_id=2, chart_type=1)
+            points = data.get("data", {}).get("chunk_info", data.get("data", []))
+            if isinstance(points, list):
+                return [{"timestamp": p.get("when", p.get("timestamp", "")), "irating": p.get("value", p.get("irating", 0))} for p in points]
+            return []
+        except Exception as e:
+            print(f"[member] Error fetching chart_data: {e}")
             return []

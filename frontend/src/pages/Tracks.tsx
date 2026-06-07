@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { api } from '@/api/client';
-import { MapPin } from 'lucide-react';
+import { MapPin, Check, Plus, Filter, Search } from 'lucide-react';
 
-function TrackCard({ track }: { track: any }) {
+function TrackCard({ track, onToggle }: { track: any; onToggle: (id: number, owned: boolean) => void }) {
   return (
-    <Card className="overflow-hidden transition-all hover:border-primary/40">
+    <Card className={`overflow-hidden transition-all ${track.owned ? 'border-emerald-500/30' : 'border-border hover:border-primary/40'}`}>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -20,13 +21,24 @@ function TrackCard({ track }: { track: any }) {
         <div className="space-y-1">
           {track.configs.map((cfg: any) => (
             <div key={cfg.track_id} className="flex items-center gap-2 text-xs">
-              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.owned ? 'bg-emerald-400' : 'bg-muted-foreground/30'}`} />
-              <span className={cfg.owned ? 'text-foreground' : 'text-muted-foreground'}>
+              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.owned || track.owned ? 'bg-emerald-400' : 'bg-muted-foreground/30'}`} />
+              <span className={cfg.owned || track.owned ? 'text-foreground' : 'text-muted-foreground'}>
                 {cfg.config_name}
               </span>
             </div>
           ))}
         </div>
+        <button
+          onClick={() => onToggle(track.track_id, !track.owned)}
+          className={`flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+            track.owned
+              ? 'bg-emerald-500/15 text-emerald-400 hover:bg-red-500/15 hover:text-red-400'
+              : 'bg-muted text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-400'
+          }`}
+        >
+          {track.owned ? <Check size={11} /> : <Plus size={11} />}
+          {track.owned ? 'Tenés esta pista' : 'Marcar como comprada'}
+        </button>
       </CardContent>
     </Card>
   );
@@ -34,23 +46,71 @@ function TrackCard({ track }: { track: any }) {
 
 export function Tracks() {
   const [tracks, setTracks] = useState<any[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.tracks.all(true).then((data) => {
-      setTracks(data);
-      setLoading(false);
-    });
+  const loadTracks = useCallback(async () => {
+    const [allTracks, ownedData] = await Promise.all([
+      api.tracks.all(false),
+      api.owned.get(),
+    ]);
+    const ownedSet = new Set(ownedData.tracks);
+    setTracks(allTracks.map((t: any) => ({
+      ...t,
+      owned: t.owned || ownedSet.has(t.track_id),
+    })));
+    setLoading(false);
   }, []);
+
+  useEffect(() => { loadTracks(); }, [loadTracks]);
+
+  const handleToggle = async (trackId: number, owned: boolean) => {
+    await api.owned.setTrack(trackId, owned);
+    setTracks((prev) => prev.map((t) =>
+      t.track_id === trackId
+        ? { ...t, owned, configs: t.configs.map((c: any) => ({ ...c, owned })) }
+        : t
+    ));
+  };
+
+  const q = search.trim().toLowerCase();
+  const visible = (showAll ? tracks : tracks.filter((t) => t.owned))
+    .filter((t) => !q || t.name.toLowerCase().includes(q) || t.city?.toLowerCase().includes(q) || t.country?.toLowerCase().includes(q));
+  const ownedCount = tracks.filter((t) => t.owned).length;
 
   return (
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Mis Pistas</h1>
-          <p className="text-sm text-muted-foreground">{tracks.length} pistas en tu colección</p>
+          <h1 className="text-xl font-semibold">Pistas</h1>
+          <p className="text-sm text-muted-foreground">{ownedCount} pistas · {tracks.length} en total</p>
         </div>
         <MapPin size={20} className="text-muted-foreground" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 flex-1 min-w-[200px]">
+          Marcá manualmente las pistas que compraste para ver qué te falta por serie.
+        </p>
+        <div className="relative shrink-0 w-full sm:w-56">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar pista, ciudad, país…"
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors shrink-0 ${
+            showAll ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'
+          }`}
+        >
+          <Filter size={12} />
+          {showAll ? 'Ver las que tenés' : 'Ver todas'}
+        </button>
       </div>
 
       {loading ? (
@@ -58,10 +118,17 @@ export function Tracks() {
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {tracks.map((t) => (
-            <TrackCard key={t.track_id} track={t} />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {visible.map((track) => (
+            <TrackCard key={track.track_id} track={track} onToggle={handleToggle} />
           ))}
+          {visible.length === 0 && (
+            <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
+              {q
+                ? `Ninguna pista coincide con "${search}"`
+                : showAll ? 'No hay pistas' : 'No marcaste ninguna pista como comprada aún'}
+            </div>
+          )}
         </div>
       )}
     </div>

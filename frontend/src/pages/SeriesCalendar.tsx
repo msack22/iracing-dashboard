@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
+import { CAR_GROUP_LABELS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
+
+const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
+  formula: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
+  gt_sport: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+  oval_nascar: 'bg-red-500/10 text-red-400 border border-red-500/20',
+  dirt: 'bg-amber-700/15 text-amber-500 border border-amber-700/30',
+  rallycross: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+  other: 'bg-muted text-muted-foreground border border-border',
+};
 import { Calendar, Car, MapPin, CheckCircle2, XCircle, Filter } from 'lucide-react';
-
-// ── Constants ──────────────────────────────────────────────────────────────────
-
-const FORMULA_TYPES = ['F4', 'F3', 'Formula iR', 'Formula 2000', 'Classic F1'];
-const SPORT_TYPES   = ['GT3', 'GT3 Cup', 'GT4', 'GTP', 'LMP3', 'LMP2', 'MX-5'];
-
-function getCarGroup(carType: string): 'formula' | 'sport' {
-  return FORMULA_TYPES.includes(carType) ? 'formula' : 'sport';
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -33,8 +34,7 @@ function TrackDot({ track }: { track: any }) {
 }
 
 function SeriesCard({ series }: { series: any }) {
-  const group = getCarGroup(series.car_type);
-  const isFormula = group === 'formula';
+  const group = getCarGroupKey(series.car_type, series.series_name);
 
   return (
     <Card className={`transition-all hover:border-primary/30 ${
@@ -44,11 +44,8 @@ function SeriesCard({ series }: { series: any }) {
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Badge
-                variant={isFormula ? 'default' : 'secondary'}
-                className={`text-xs ${isFormula ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}
-              >
-                {isFormula ? '🏎️ Fórmula' : '🚗 Sport Car'}
+              <Badge variant="secondary" className={`text-xs ${GROUP_BADGE_CLASS[group]}`}>
+                {CAR_GROUP_LABELS[group]}
               </Badge>
               <Badge variant="outline" className="text-xs">{series.car_type}</Badge>
             </div>
@@ -131,35 +128,40 @@ function SeriesCard({ series }: { series: any }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type GroupFilter = 'all' | 'formula' | 'sport';
+type CarFilter = 'all' | CarGroupKey;
+
+const CAR_FILTERS: { value: CarFilter; label: string; activeClass: string }[] = [
+  { value: 'all', label: 'Todas', activeClass: 'bg-primary text-primary-foreground' },
+  ...CAR_GROUP_ORDER.map((g) => ({ value: g as CarFilter, label: CAR_GROUP_LABELS[g], activeClass: GROUP_BADGE_CLASS[g] })),
+];
 
 export function SeriesCalendar() {
-  const [series, setSeries] = useState<any[]>([]);
-  const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
+  const [allSeries, setAllSeries] = useState<any[]>([]);
+  const [carFilter, setCarFilter] = useState<CarFilter>('all');
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [readyOnly, setReadyOnly] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.series.all().then((data) => {
-      setSeries(data);
+      setAllSeries(data);
       setLoading(false);
     });
   }, []);
 
-  const allTypes = [...new Set(series.map((s) => s.car_type))];
-  const formulaTypes = allTypes.filter((t) => FORMULA_TYPES.includes(t));
-  const sportTypes   = allTypes.filter((t) => SPORT_TYPES.includes(t));
+  // Filtro local por categoría de auto (Fórmula/GT & Sport/Oval/Dirt/Rallycross/Todas), luego refinamientos
+  const groupFiltered = carFilter === 'all'
+    ? allSeries
+    : allSeries.filter((s: any) => getCarGroupKey(s.car_type, s.series_name) === carFilter);
+  const allTypes = [...new Set(groupFiltered.map((s: any) => s.car_type))];
 
-  const filtered = series.filter((s) => {
+  const filtered = groupFiltered.filter((s: any) => {
     if (readyOnly && !s.can_race) return false;
-    if (groupFilter === 'formula' && !FORMULA_TYPES.includes(s.car_type)) return false;
-    if (groupFilter === 'sport' && !SPORT_TYPES.includes(s.car_type)) return false;
     if (typeFilter.length > 0 && !typeFilter.includes(s.car_type)) return false;
     return true;
   });
 
-  const readyCount = series.filter((s) => s.can_race).length;
+  const readyCount = groupFiltered.filter((s: any) => s.can_race).length;
 
   return (
     <div className="space-y-5 p-6">
@@ -167,7 +169,7 @@ export function SeriesCalendar() {
         <div>
           <h1 className="text-xl font-semibold">Calendario de Series</h1>
           <p className="text-sm text-muted-foreground">
-            {readyCount}/{series.length} series listas para correr con tu contenido actual
+            {readyCount}/{groupFiltered.length} series listas para correr con tu contenido actual
           </p>
         </div>
         <Calendar size={20} className="text-muted-foreground" />
@@ -176,26 +178,23 @@ export function SeriesCalendar() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          {/* Group filter */}
           <div className="flex items-center gap-2">
             <Filter size={13} className="text-muted-foreground shrink-0" />
             <div className="flex gap-1.5 flex-wrap">
-              {([['all', 'Todas'], ['formula', '🏎️ Fórmula'], ['sport', '🚗 Sport Car']] as [GroupFilter, string][]).map(([val, label]) => (
+              {/* Car class filter */}
+              {CAR_FILTERS.map((f) => (
                 <button
-                  key={val}
-                  onClick={() => { setGroupFilter(val); setTypeFilter([]); }}
+                  key={f.value}
+                  onClick={() => setCarFilter(f.value)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
-                    groupFilter === val
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                    carFilter === f.value
+                      ? f.activeClass
+                      : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {label}
+                  {f.label}
                 </button>
               ))}
-
-              <div className="w-px bg-border mx-1" />
-
               {/* "Solo listas" toggle */}
               <button
                 onClick={() => setReadyOnly(!readyOnly)}
@@ -211,9 +210,9 @@ export function SeriesCalendar() {
           </div>
 
           {/* Specific type chips */}
-          {(groupFilter === 'formula' ? formulaTypes : groupFilter === 'sport' ? sportTypes : allTypes).length > 1 && (
+          {allTypes.length > 1 && (
             <div className="flex flex-wrap gap-1.5 pl-5">
-              {(groupFilter === 'formula' ? formulaTypes : groupFilter === 'sport' ? sportTypes : allTypes).map((t) => (
+              {allTypes.map((t) => (
                 <button
                   key={t}
                   onClick={() => setTypeFilter(

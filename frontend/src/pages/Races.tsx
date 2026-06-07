@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
-import { useRacingMode } from '@/context/RacingModeContext';
-import { Flag, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { getCarGroup } from '@/lib/carGroups';
+import { Flag, TrendingUp, TrendingDown, AlertTriangle, Filter } from 'lucide-react';
 import { formatLapTime } from '@/lib/utils';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 
+type CarFilter = 'all' | 'formula' | 'sport';
+
+const CAR_FILTERS: { value: CarFilter; label: string; activeClass: string }[] = [
+  { value: 'all',     label: 'Todos',         activeClass: 'bg-primary text-primary-foreground' },
+  { value: 'formula', label: '🏎️ Fórmula',   activeClass: 'bg-orange-500/20 text-orange-400 border border-orange-500/30' },
+  { value: 'sport',   label: '🚗 Sport Car',  activeClass: 'bg-blue-500/20 text-blue-400 border border-blue-500/30' },
+];
+
 export function Races() {
-  const { filterRaces, mode } = useRacingMode();
   const [allRaces, setAllRaces] = useState<any[]>([]);
+  const [carFilter, setCarFilter] = useState<CarFilter>('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +28,9 @@ export function Races() {
     });
   }, []);
 
-  const races = filterRaces(allRaces);
+  const races = carFilter === 'all'
+    ? allRaces
+    : allRaces.filter((r) => getCarGroup(r.car_name) === carFilter);
 
   const incidentData = races.slice().reverse().map((r, i) => ({
     name: `C${i + 1}`,
@@ -33,17 +42,30 @@ export function Races() {
     <div className="space-y-5 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">
-            Carreras
-            {mode !== 'all' && (
-              <span className={`ml-2 text-sm font-normal ${mode === 'formula' ? 'text-orange-400' : 'text-blue-400'}`}>
-                · {mode === 'formula' ? '🏎️ Fórmula' : '🚗 Sport Car'}
-              </span>
-            )}
-          </h1>
-          <p className="text-sm text-muted-foreground">{races.length} carreras{mode !== 'all' ? ' en esta categoría' : ' recientes'}</p>
+          <h1 className="text-xl font-semibold">Carreras</h1>
+          <p className="text-sm text-muted-foreground">{races.length} carreras{carFilter !== 'all' ? ' en esta categoría' : ' recientes'}</p>
         </div>
         <Flag size={20} className="text-muted-foreground" />
+      </div>
+
+      {/* Local car-class filter */}
+      <div className="flex items-center gap-2">
+        <Filter size={13} className="text-muted-foreground shrink-0" />
+        <div className="flex gap-1.5 flex-wrap">
+          {CAR_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setCarFilter(f.value)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
+                carFilter === f.value
+                  ? f.activeClass
+                  : 'border-border text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Incidents chart */}
@@ -76,7 +98,7 @@ export function Races() {
       ) : races.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No hay carreras registradas para {mode === 'formula' ? 'Fórmula' : 'Sport Car'}.
+            No hay carreras registradas para {carFilter === 'formula' ? 'Fórmula' : 'Sport Car'}.
           </CardContent>
         </Card>
       ) : (

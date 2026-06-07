@@ -1,6 +1,4 @@
-from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Optional
 from domain.repositories.i_cars_repository import ICarsRepository
 from domain.repositories.i_tracks_repository import ITracksRepository
 from infrastructure.iracing.mock.mock_data import MOCK_SERIES
@@ -17,18 +15,18 @@ def _get_discount(count: int) -> float:
 
 @dataclass
 class ContentItem:
-    type: str        # 'car' | 'track'
+    type: str
     id: int
     name: str
     price: float
     series_count: int
     score: float
-    car_type: Optional[str] = None   # e.g. 'GT3', 'F4'
+    car_type: str | None = None
 
 
 @dataclass
 class Bundle:
-    items: List[ContentItem]
+    items: list[ContentItem]
     total_price: float
     discount_pct: float
     savings: float
@@ -43,33 +41,26 @@ class GetPurchaseRecommendationsUseCase:
     async def execute(
         self,
         bundle_size: int = 3,
-        car_types: Optional[List[str]] = None,   # ['GT3', 'F4'] – empty = all
+        car_types: list[str] | None = None,
         include_cars: bool = True,
     ) -> dict:
         all_cars, all_tracks = await self._cars.get_all_cars(), await self._tracks.get_all_tracks()
 
-        # Investment summary (always full, unfiltered)
         owned_cars = [c for c in all_cars if c.owned]
         owned_tracks = [t for t in all_tracks if t.owned]
         total_spent = sum(c.price for c in owned_cars) + sum(t.price for t in owned_tracks)
 
-        # Filter series by selected car types
         selected_series = MOCK_SERIES
         if car_types:
-            selected_series = [
-                s for s in MOCK_SERIES
-                if s["car_type"] in car_types
-            ]
+            selected_series = [s for s in MOCK_SERIES if s["car_type"] in car_types]
 
-        # Car class IDs and season track IDs from the selected series
         relevant_class_ids: set[int] = set()
         relevant_track_ids: set[int] = set()
         for s in selected_series:
             relevant_class_ids.update(s["car_class_ids"])
             relevant_track_ids.update(s["season_tracks"])
 
-        # Build car items (only if include_cars=True and matches selected category)
-        car_items: List[ContentItem] = []
+        car_items: list[ContentItem] = []
         if include_cars:
             for c in all_cars:
                 if c.owned or c.retired:
@@ -84,8 +75,7 @@ class GetPurchaseRecommendationsUseCase:
                     car_type=car_type_label,
                 ))
 
-        # Build track items (filtered to tracks used in selected series this season)
-        track_items: List[ContentItem] = []
+        track_items: list[ContentItem] = []
         for t in all_tracks:
             if t.owned:
                 continue
@@ -99,10 +89,8 @@ class GetPurchaseRecommendationsUseCase:
 
         all_items = sorted(car_items + track_items, key=lambda x: x.score, reverse=True)
         top_items = all_items[:20]
-
         bundles = _build_bundles(top_items, bundle_size)
 
-        # Available car types for the filter UI
         available_car_types = sorted({s["car_type"] for s in MOCK_SERIES})
 
         return {
@@ -138,7 +126,7 @@ def _resolve_car_type(class_name: str, car_name: str) -> str:
     return class_name or "—"
 
 
-def _build_bundles(items: List[ContentItem], size: int) -> List[Bundle]:
+def _build_bundles(items: list[ContentItem], size: int) -> list[Bundle]:
     bundles = []
     pool = list(items)
     while len(pool) >= size:

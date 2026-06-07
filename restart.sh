@@ -3,6 +3,7 @@ set -e
 
 BACKEND_PORT=4001
 FRONTEND_PORT=4000
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Kill processes on ports 4001 and 4000
 echo "Bajando procesos en puertos $BACKEND_PORT y $FRONTEND_PORT..."
@@ -21,14 +22,14 @@ sleep 1
 # Backend
 echo ""
 echo "Levantando backend (puerto $BACKEND_PORT)..."
-cd "$(dirname "$0")/backend"
+cd "$ROOT_DIR/backend"
 
-if [ ! -d "venv" ] && [ ! -d ".venv" ]; then
-  echo "  Creando virtualenv..."
-  python3 -m venv venv
+if [ ! -d "venv" ]; then
+  echo "  Creando virtualenv con Python 3.11..."
+  python3.11 -m venv venv
 fi
 
-source venv/bin/activate 2>/dev/null || source .venv/bin/activate 2>/dev/null
+source venv/bin/activate
 
 pip install -q -r requirements.txt
 
@@ -37,21 +38,21 @@ if [ ! -f ".env" ]; then
   echo "  ⚠ Se copió .env.example a .env — editalo si es necesario"
 fi
 
-nohup python main.py > ../logs/backend.log 2>&1 &
+mkdir -p "$ROOT_DIR/logs"
+nohup python main.py > "$ROOT_DIR/logs/backend.log" 2>&1 &
 echo "  ✓ Backend PID: $!"
 
 # Frontend
 echo ""
 echo "Levantando frontend (puerto $FRONTEND_PORT)..."
-cd "$(dirname "$0")/frontend"
+cd "$ROOT_DIR/frontend"
 
 if [ ! -d "node_modules" ]; then
   echo "  Instalando dependencias npm..."
   npm install --silent
 fi
 
-mkdir -p "$(dirname "$0")/logs"
-nohup npm run dev > ../logs/frontend.log 2>&1 &
+nohup npm run dev > "$ROOT_DIR/logs/frontend.log" 2>&1 &
 echo "  ✓ Frontend PID: $!"
 
 echo ""
@@ -60,5 +61,5 @@ echo "  Backend  → http://localhost:$BACKEND_PORT"
 echo "  Frontend → http://localhost:$FRONTEND_PORT"
 echo ""
 echo "Logs:"
-echo "  tail -f logs/backend.log"
-echo "  tail -f logs/frontend.log"
+echo "  tail -f $ROOT_DIR/logs/backend.log"
+echo "  tail -f $ROOT_DIR/logs/frontend.log"
