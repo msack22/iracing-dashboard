@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from domain.repositories.i_cars_repository import ICarsRepository
 from domain.repositories.i_tracks_repository import ITracksRepository
 from infrastructure.iracing.mock.mock_data import MOCK_SERIES
+from infrastructure.storage.owned_store import get_all_overrides
 
 DISCOUNT_TIERS = [(6, 0.15), (3, 0.10)]
 
@@ -45,6 +46,16 @@ class GetPurchaseRecommendationsUseCase:
         include_cars: bool = True,
     ) -> dict:
         all_cars, all_tracks = await self._cars.get_all_cars(), await self._tracks.get_all_tracks()
+
+        manual = get_all_overrides()
+        owned_car_ids = set(manual["cars"])
+        owned_track_ids = set(manual["tracks"])
+        for c in all_cars:
+            if c.car_id in owned_car_ids:
+                c.owned = True
+        for t in all_tracks:
+            if t.track_id in owned_track_ids:
+                t.owned = True
 
         owned_cars = [c for c in all_cars if c.owned]
         owned_tracks = [t for t in all_tracks if t.owned]
