@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     iracing_username: str = ""
     iracing_password: str = ""
-    iracing_customer_id: int = 1240652
+    iracing_customer_id: int = 0
     use_mock: bool = True
     port: int = 4001
 

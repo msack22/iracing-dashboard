@@ -4,6 +4,24 @@ Dashboard personal para gestionar tu temporada en iRacing: garage, pistas, anál
 
 ---
 
+## Demo
+
+| Dashboard | Análisis de Overlap |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Overlap](docs/screenshots/overlap.png) |
+
+> Capturas con datos de demostración (`USE_MOCK=true`) — no requieren cuenta de iRacing para probarlo.
+
+---
+
+## ☕ Apoyá el proyecto
+
+Si te resultó útil y querés invitarme un café:
+
+**[cafecito.app/mati9099](https://cafecito.app/mati9099)**
+
+---
+
 ## Stack
 
 | Capa | Tecnología |
