@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/api/client';
-import { Upload, CheckCircle2, XCircle, RefreshCw, FileText, Loader2, Car, MapPin, Search, Database } from 'lucide-react';
+import { Upload, CheckCircle2, XCircle, RefreshCw, FileText, Loader2, Car, MapPin, Search, Database, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ interface ParsedSeries {
   tracks: { raw: string; track_id: number | null; name: string | null; owned: boolean }[];
   matched_count: number;
   total_tracks: number;
+  likely_weekly_guide: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -52,7 +53,14 @@ function ParsedSeriesCard({
           className="h-4 w-4 rounded border-border accent-primary"
         />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{s.series_name}</p>
+          <p className="text-sm font-medium truncate flex items-center gap-1.5">
+            {s.series_name}
+            {s.likely_weekly_guide && (
+              <span title={t('settings.likelyWeeklyGuideBadge')}>
+                <AlertTriangle size={13} className="text-amber-400 shrink-0" />
+              </span>
+            )}
+          </p>
           <p className="text-xs text-muted-foreground">
             {s.car_names.join(', ')} · {s.license_class}
             {s.car_type && <span className="ml-1 text-foreground/70">{t('settings.carClass', { type: s.car_type })}</span>}
@@ -191,6 +199,8 @@ export function Settings() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [replaceExisting, setReplaceExisting] = useState(false);
+  const [pdfWarning, setPdfWarning] = useState<string | null>(null);
 
   // Manual ownership state
   const [allCars, setAllCars] = useState<any[]>([]);
@@ -249,6 +259,7 @@ export function Settings() {
     setError(null);
     setParsed(null);
     setImportResult(null);
+    setPdfWarning(null);
 
     const form = new FormData();
     form.append('file', file);
@@ -260,6 +271,7 @@ export function Settings() {
       const data: ParsedSeries[] = json.data ?? [];
       setParsed(data);
       setSelected(new Set(data.map((_, i) => i)));
+      setPdfWarning(json.warning_type ?? null);
     } catch (e: any) {
       setError(e.message ?? t('settings.pdfError'));
     } finally {
@@ -289,7 +301,7 @@ export function Settings() {
       const res = await fetch('/api/series/import-confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ series: toImport }),
+        body: JSON.stringify({ series: toImport, replace_existing: replaceExisting }),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const json = await res.json();
@@ -442,6 +454,15 @@ export function Settings() {
           {/* Results */}
           {parsed && (
             <div className="space-y-3">
+              {pdfWarning === 'likely_weekly_guide' && (
+                <div className="flex gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+                  <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-400">{t('settings.weeklyGuideWarningTitle')}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t('settings.weeklyGuideWarningBody')}</p>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">
                   {t('settings.seriesFound', { count: parsed.length })}
@@ -476,6 +497,19 @@ export function Settings() {
                   />
                 ))}
               </div>
+
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={replaceExisting}
+                  onChange={(e) => setReplaceExisting(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  {t('settings.replaceExisting')}
+                  <span className="block text-xs text-muted-foreground">{t('settings.replaceExistingHint')}</span>
+                </span>
+              </label>
 
               <button
                 onClick={handleImport}

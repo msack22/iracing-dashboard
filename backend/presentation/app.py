@@ -433,22 +433,44 @@ def create_app(
                 continue
             i += 1
 
-        return {"data": parsed_series}
+        # Heurística: detectar PDFs de "guía semanal" (ej. "13th Week ...")
+        # en vez de un calendario de temporada. Estos listan las sesiones de
+        # una sola semana de carreras, no las rondas de toda la temporada, y
+        # producirían recomendaciones de overlap/compra engañosas si se importan.
+        week_guide_re = re.compile(r'^\d+(?:st|nd|rd|th)\s+Week\b', re.IGNORECASE)
+        weekly_guide_count = 0
+        for s in parsed_series:
+            likely_weekly_guide = bool(week_guide_re.match(s["series_name"])) or s["total_tracks"] > 13
+            s["likely_weekly_guide"] = likely_weekly_guide
+            if likely_weekly_guide:
+                weekly_guide_count += 1
+
+        warning_type = None
+        if parsed_series and weekly_guide_count >= len(parsed_series) / 2:
+            warning_type = "likely_weekly_guide"
+
+        return {"data": parsed_series, "warning_type": warning_type}
 
     class ImportConfirmPayload(BaseModel):
         series: list[dict]
+        replace_existing: bool = False
 
     @app.post("/api/series/import-confirm")
     async def import_confirm(payload: ImportConfirmPayload):
         """
         Recibe las series seleccionadas (ya parseadas y revisadas por el usuario)
         e importa / sobreescribe en schedule_store.
+        Si replace_existing=True, borra el calendario anterior por completo antes de importar.
         """
         import json as _json
         from infrastructure.storage.schedule_store import _conn
 
         imported = 0
         with _conn() as con:
+            if payload.replace_existing:
+                con.execute("DELETE FROM series_schedule_tracks")
+                con.execute("DELETE FROM series_schedule")
+
             for idx, s in enumerate(payload.series):
                 series_id = 9000 + idx  # IDs temporales empezando en 9000
                 # Intentar detectar ID existente por nombre
@@ -464,7 +486,16 @@ def create_app(
                     existing_max = max_row[0] if max_row and max_row[0] else 8999
                     series_id = max(9000, existing_max + 1)
 
-                track_ids = [t["track_id"] for t in s.get("tracks", []) if t.get("track_id")]
+                # dedupe preservando el orden: una pista puede repetirse en el calendario
+                # de la serie (varias rondas en el mismo circuito), pero la tabla solo
+                # admite una fila por (series_id, track_id)
+                seen: set[int] = set()
+                track_ids = []
+                for t in s.get("tracks", []):
+                    tid = t.get("track_id")
+                    if tid and tid not in seen:
+                        seen.add(tid)
+                        track_ids.append(tid)
                 car_class_ids = s.get("car_class_ids", [])
 
                 con.execute(
