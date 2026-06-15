@@ -16,6 +16,18 @@ export const CAR_GROUP_LABEL_KEYS: Record<CarGroupKey, string> = {
 
 export const CAR_GROUP_ORDER: CarGroupKey[] = ['formula', 'gt_sport', 'oval_nascar', 'dirt', 'rallycross', 'other'];
 
+/** Clases de licencia de iRacing, usadas para filtros por licencia en Series y Overlap. */
+export const LICENSE_CLASSES = ['R', 'D', 'C', 'B', 'A'] as const;
+export type LicenseClass = typeof LICENSE_CLASSES[number];
+
+export const LICENSE_BADGE_CLASS: Record<LicenseClass, string> = {
+  R: 'bg-red-500/15 text-red-400 border border-red-500/30',
+  D: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
+  C: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
+  B: 'bg-green-500/15 text-green-400 border border-green-500/30',
+  A: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
+};
+
 const FORMULA_TOKENS = ['formula', 'f1', 'f2', 'f3', 'f4', 'f5', 'indycar', 'skip barber', 'dallara', 'ir-01', 'ir01', 'lotus'];
 const RALLYCROSS_TOKENS = ['rallycross', 'rally', 'off-road', 'off road', 'baja', 'lucas oil', 'crosskart', 'rx'];
 const DIRT_TOKENS = ['dirt', 'sprint car', 'midget', 'micro sprint', 'dirtcar', 'ump', 'world of outlaws', 'silver crown'];

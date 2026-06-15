@@ -12,6 +12,7 @@ interface ParsedSeries {
   season: string;
   car_names: string[];
   car_type: string;
+  car_class_ids: number[];
   license_class: string;
   tracks: { raw: string; track_id: number | null; name: string | null; owned: boolean }[];
   matched_count: number;
@@ -200,6 +201,7 @@ export function Settings() {
   const [importResult, setImportResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [replaceExisting, setReplaceExisting] = useState(false);
+  const [skipWeekly, setSkipWeekly] = useState(true);
   const [pdfWarning, setPdfWarning] = useState<string | null>(null);
 
   // Manual ownership state
@@ -263,6 +265,7 @@ export function Settings() {
 
     const form = new FormData();
     form.append('file', file);
+    form.append('skip_weekly', String(skipWeekly));
 
     try {
       const res = await fetch('/api/series/import-pdf', { method: 'POST', body: form });
@@ -421,6 +424,19 @@ export function Settings() {
           <p className="text-sm text-muted-foreground">
             {t('settings.importDesc')}
           </p>
+
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={skipWeekly}
+              onChange={(e) => setSkipWeekly(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span className="text-sm">
+              {t('settings.skipWeekly')}
+              <span className="block text-xs text-muted-foreground">{t('settings.skipWeeklyHint')}</span>
+            </span>
+          </label>
 
           {/* Drop zone */}
           <div

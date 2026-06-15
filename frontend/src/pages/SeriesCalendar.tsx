@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
-import { CAR_GROUP_LABEL_KEYS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey } from '@/lib/carGroups';
+import { CAR_GROUP_LABEL_KEYS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey, LICENSE_CLASSES, LICENSE_BADGE_CLASS } from '@/lib/carGroups';
 
 const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
   formula: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
@@ -13,7 +13,7 @@ const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
   rallycross: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
   other: 'bg-muted text-muted-foreground border border-border',
 };
-import { Calendar, Car, MapPin, CheckCircle2, XCircle, Filter } from 'lucide-react';
+import { Calendar, Car, MapPin, CheckCircle2, XCircle, Filter, Award } from 'lucide-react';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -136,17 +136,11 @@ function SeriesCard({ series }: { series: any }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type CarFilter = 'all' | CarGroupKey;
-
-const CAR_FILTER_KEYS: { value: CarFilter; labelKey: string; activeClass: string }[] = [
-  { value: 'all', labelKey: 'seriesCalendar.filterAll', activeClass: 'bg-primary text-primary-foreground' },
-  ...CAR_GROUP_ORDER.map((g) => ({ value: g as CarFilter, labelKey: CAR_GROUP_LABEL_KEYS[g], activeClass: GROUP_BADGE_CLASS[g] })),
-];
-
 export function SeriesCalendar() {
   const { t } = useTranslation();
   const [allSeries, setAllSeries] = useState<any[]>([]);
-  const [carFilter, setCarFilter] = useState<CarFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<CarGroupKey[]>([]);
+  const [licenseFilter, setLicenseFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [readyOnly, setReadyOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -158,10 +152,19 @@ export function SeriesCalendar() {
     });
   }, []);
 
-  // Filtro local por categoría de auto (Fórmula/GT & Sport/Oval/Dirt/Rallycross/Todas), luego refinamientos
-  const groupFiltered = carFilter === 'all'
-    ? allSeries
-    : allSeries.filter((s: any) => getCarGroupKey(s.car_type, s.series_name) === carFilter);
+  const toggleCategory = (g: CarGroupKey) => setCategoryFilter((prev) =>
+    prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
+  );
+  const toggleLicense = (l: string) => setLicenseFilter((prev) =>
+    prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]
+  );
+
+  // Filtro local por categoría de auto y licencia (multiselección), luego refinamientos
+  const groupFiltered = allSeries.filter((s: any) => {
+    if (categoryFilter.length > 0 && !categoryFilter.includes(getCarGroupKey(s.car_type, s.series_name))) return false;
+    if (licenseFilter.length > 0 && !licenseFilter.includes(s.license_class)) return false;
+    return true;
+  });
   const allTypes = [...new Set(groupFiltered.map((s: any) => s.car_type))];
 
   const filtered = groupFiltered.filter((s: any) => {
@@ -190,18 +193,28 @@ export function SeriesCalendar() {
           <div className="flex items-center gap-2">
             <Filter size={13} className="text-muted-foreground shrink-0" />
             <div className="flex gap-1.5 flex-wrap">
-              {/* Car class filter */}
-              {CAR_FILTER_KEYS.map((f) => (
+              {/* Car category filter (multiselección) */}
+              <button
+                onClick={() => setCategoryFilter([])}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
+                  categoryFilter.length === 0
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border-border text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {t('seriesCalendar.filterAll')}
+              </button>
+              {CAR_GROUP_ORDER.map((g) => (
                 <button
-                  key={f.value}
-                  onClick={() => setCarFilter(f.value)}
+                  key={g}
+                  onClick={() => toggleCategory(g)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
-                    carFilter === f.value
-                      ? f.activeClass
+                    categoryFilter.includes(g)
+                      ? GROUP_BADGE_CLASS[g]
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {t(f.labelKey)}
+                  {t(CAR_GROUP_LABEL_KEYS[g])}
                 </button>
               ))}
               {/* "Solo listas" toggle */}
@@ -215,6 +228,36 @@ export function SeriesCalendar() {
               >
                 {t('seriesCalendar.readyOnly')}
               </button>
+            </div>
+          </div>
+
+          {/* License class filter (multiselección) */}
+          <div className="flex items-center gap-2">
+            <Award size={13} className="text-muted-foreground shrink-0" />
+            <div className="flex gap-1.5 flex-wrap">
+              <button
+                onClick={() => setLicenseFilter([])}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
+                  licenseFilter.length === 0
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border-border text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {t('seriesCalendar.filterAll')}
+              </button>
+              {LICENSE_CLASSES.map((lic) => (
+                <button
+                  key={lic}
+                  onClick={() => toggleLicense(lic)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors border ${
+                    licenseFilter.includes(lic)
+                      ? LICENSE_BADGE_CLASS[lic]
+                      : 'border-border text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {lic}
+                </button>
+              ))}
             </div>
           </div>
 

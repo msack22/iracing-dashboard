@@ -200,6 +200,8 @@
     "noResults": "Sem resultados",
     "importTitle": "Importar Calendário da Temporada (PDF)",
     "importDesc": "Baixe o PDF oficial do iRacing com o calendário da temporada e envie aqui. O sistema extrai automaticamente as séries e pistas para a análise de overlap.",
+    "skipWeekly": "Ignorar séries \"13th Week ...\"",
+    "skipWeeklyHint": "Não importa as séries remanescentes da temporada anterior que ainda aparecem no PDF (poucas pistas, nomes tipo \"13th Week ...\").",
     "processingPdf": "Processando PDF...",
     "dropHint": "Arraste o PDF aqui ou clique",
     "dropFile": "SeasonSchedule.pdf do iRacing",

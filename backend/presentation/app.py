@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, UploadFile, File
+from fastapi import FastAPI, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from dataclasses import asdict
 from domain.repositories.i_cars_repository import ICarsRepository
@@ -273,11 +273,16 @@ def create_app(
         return {"ok": True, "seeded": len(MOCK_SERIES)}
 
     @app.post("/api/series/import-pdf")
-    async def import_pdf(file: UploadFile = File(...)):
+    async def import_pdf(file: UploadFile = File(...), skip_weekly: bool = Form(False)):
         """
-        Acepta un PDF con el calendario de temporada de iRacing,
-        extrae el texto con pdftotext y parsea series + tracks.
-        Devuelve ParsedSeries[] para que el usuario revise y confirme.
+        Acepta el PDF "Current iRacing Race Schedule" (todas las categorías),
+        extrae el texto con pdftotext -layout (preserva columnas) y parsea
+        series + pistas de cada temporada. Devuelve ParsedSeries[] para que
+        el usuario revise y confirme.
+
+        skip_weekly: si es True, omite las series "Nth Week ..." (sesiones
+        sueltas de la temporada anterior que todavía aparecen en el PDF pero
+        no representan un calendario de temporada completo).
         """
         import tempfile, subprocess, re, json as _json
         from collections import Counter
@@ -294,7 +299,7 @@ def create_app(
 
         try:
             result = subprocess.run(
-                ["pdftotext", tmp_path, "-"],
+                ["pdftotext", "-layout", tmp_path, "-"],
                 capture_output=True, text=True, timeout=30
             )
             text = result.stdout
@@ -319,7 +324,6 @@ def create_app(
 
         def match_track(raw: str):
             raw_lower = raw.lower()
-            raw_tokens = name_tokens(raw)
             best_score = 0
             best_track = None
             for t, tokens in track_lookup:
@@ -350,101 +354,171 @@ def create_app(
                 return None
             return best_car
 
-        def derive_car_type(raw_names: list[str]) -> str:
-            """Determina la clase de auto representativa de una serie a partir de los nombres crudos parseados del PDF."""
+        def derive_car_info(raw_names: list[str]) -> tuple[str, list[int]]:
+            """Determina la clase de auto representativa y los car_class_id involucrados
+            en una serie a partir de los nombres crudos parseados del PDF."""
             labels = []
+            class_ids: list[int] = []
             for raw in raw_names:
                 matched = match_car(raw)
                 if matched:
                     labels.append(matched.car_class_name or matched.name)
+                    if matched.car_class_id not in class_ids:
+                        class_ids.append(matched.car_class_id)
             if not labels:
-                return raw_names[0] if raw_names else ""
-            return Counter(labels).most_common(1)[0][0]
+                return (raw_names[0] if raw_names else ""), class_ids
+            return Counter(labels).most_common(1)[0][0], class_ids
 
-        # Parse text into series blocks
-        # Series header pattern: "Series Name - YYYY Season N"
-        # Track lines: lines NOT starting with "(2026-" that come before date lines
-        lines = text.splitlines()
+        # ── Parsing ──────────────────────────────────────────────────────────
+        # El PDF "Current iRacing Race Schedule" lista, por categoría
+        # (OVAL / SPORTS CAR / FORMULA CAR / DIRT ... ) y clase de licencia
+        # (R/D/C/B/A), cada serie con su temporada ("Series Name - 2026 Season N"),
+        # los autos habilitados, y 12 líneas "Week N (YYYY-MM-DD)  Track  clima  formato".
+        # Algunas entradas son sobrantes de la temporada anterior ("Nth Week ...")
+        # con muy pocas rondas: se marcan como likely_weekly_guide y, si
+        # skip_weekly=True, se descartan directamente.
+
+        SECTION_RE = re.compile(r'^([RDCBA])\s+Class\s+Series\s*\(', re.IGNORECASE)
+        # Las cabeceras de serie son "Nombre - YYYY Season N[ Fixed/Open]", pero el PDF
+        # tiene variantes irregulares (sin número, "YYYY - Season N", años truncados a
+        # 3 cifras). Como "Season" no aparece en ninguna otra línea del documento,
+        # cualquier número (2-4 cifras) seguido de "Season" marca el final del nombre.
+        HEADER_RE = re.compile(r'(.*?)\s*[-–]?\s*\d{2,4}\s*[-–]?\s*Season(?:\s+(\d+|Fixed|Open))?', re.IGNORECASE)
+        # Formato invertido (sobrantes "Nth Week"): "2026 Season 2 - 13th Week - Nombre"
+        REVERSED_HEADER_RE = re.compile(r'^\d{2,4}\s*[-–]?\s*Season\s+(\d+)\s*[-–]\s*(.+)$', re.IGNORECASE)
+        TRACK_RE = re.compile(r'^Week\s+\d+\s*\(\d{4}-\d{2}-\d{2}\)\s+(.+)$')
+        week_guide_re = re.compile(r'^\d+(?:st|nd|rd|th)\s+Week\b', re.IGNORECASE)
+
+        def match_header(l: str):
+            return HEADER_RE.search(l)
+
+        def is_new_series(l: str) -> bool:
+            # Una nueva sección de licencia, una cabecera "Nombre - YYYY Season N",
+            # o una cabecera "Nth Week ..." sin sufijo de temporada (caso borde del PDF)
+            # marcan siempre el inicio de una nueva serie.
+            return bool(SECTION_RE.match(l) or match_header(l) or week_guide_re.match(l))
+
+        # Filtrar líneas de la tabla de contenido (con "leader dots" tipo ". . . . 12")
+        # y números de página sueltos.
+        lines = []
+        for raw_l in text.splitlines():
+            if re.search(r'\.\s?\.\s?\.', raw_l):
+                continue
+            if re.match(r'^\s*\d+\s*$', raw_l):
+                continue
+            lines.append(raw_l.rstrip())
+
         parsed_series = []
+        current_license = ""
         i = 0
         while i < len(lines):
             line = lines[i].strip()
-            # Detect series header: "Something - 2026 Season N" or "Something 2026 Season N"
-            header_match = re.search(r'(.+?)\s*[-–]\s*20\d\d\s+Season\s+\d+', line, re.IGNORECASE)
-            if not header_match:
-                # Also check for plain "2026 Season N" without dash
-                header_match = re.search(r'(.+?)\s+20\d\d\s+Season\s+\d+', line, re.IGNORECASE)
-            if header_match:
-                series_name = header_match.group(1).strip()
-                season_str = line[header_match.start():]
-                season_m = re.search(r'(20\d\d\s+Season\s+\d+)', season_str, re.IGNORECASE)
-                season = season_m.group(1) if season_m else "2026 Season 2"
-
-                # Gather track+date pairs until next header
-                tracks_parsed = []
-                cars_found = []
-                license_class = ""
+            if not line:
                 i += 1
+                continue
+
+            sec_m = SECTION_RE.match(line)
+            if sec_m:
+                current_license = sec_m.group(1).upper()
+                i += 1
+                continue
+
+            header_match = match_header(line)
+            week_only = None if header_match else week_guide_re.match(line)
+            if header_match or week_only:
+                if header_match:
+                    series_name = header_match.group(1).strip(" -–")
+                    season_num = header_match.group(2)
+                    if not series_name:
+                        # Formato invertido: "2026 Season 2 - 13th Week - Nombre"
+                        rev_m = REVERSED_HEADER_RE.match(line)
+                        if rev_m:
+                            season_num = rev_m.group(1)
+                            series_name = rev_m.group(2).strip(" -–")
+                    if season_num and season_num.isdigit():
+                        season = f"2026 Season {season_num}"
+                    else:
+                        season = "2026 Season 3"
+                        if season_num:
+                            # "Fixed"/"Open" venían después de "Season" sin número
+                            # (ej. "NASCAR iRacing Series - 2026 Season Fixed") -
+                            # se agregan al nombre para distinguir ambas variantes.
+                            series_name = f"{series_name} - {season_num}"
+                    # Sufijo "- Fixed"/"- Open" después del número de temporada
+                    # (ej. "X - 2026 Season 3 - Fixed"), que si no se distingue
+                    # produce dos series con el mismo nombre+temporada.
+                    trailing = line[header_match.end():].strip(" -–")
+                    if trailing.lower() in ("fixed", "open") and not series_name.lower().endswith(trailing.lower()):
+                        series_name = f"{series_name} - {trailing}"
+                else:
+                    # Caso borde: cabecera "Nth Week ..." sin sufijo "- YYYY Season N"
+                    series_name = line
+                    season = "2026 Season 2"
+                i += 1
+
+                # Líneas de autos: vienen justo después del header, hasta la
+                # línea de rango de licencia ("Rookie X.X --> Pro/WC X.X" o
+                # "Class X X.X --> Pro/WC X.X")
+                car_lines = []
                 while i < len(lines):
                     l = lines[i].strip()
-                    # Stop at next series header
-                    if re.search(r'(.+?)\s*[-–]\s*20\d\d\s+Season\s+\d+', l, re.IGNORECASE) or \
-                       re.search(r'(.+?)\s+20\d\d\s+Season\s+\d+', l, re.IGNORECASE):
+                    if not l:
+                        i += 1
+                        continue
+                    if '-->' in l or TRACK_RE.match(l) or is_new_series(l):
                         break
-                    # License line
-                    lic_m = re.search(r'Class\s+([A-F])\b', l, re.IGNORECASE)
-                    if lic_m:
-                        license_class = lic_m.group(1).upper()
-                    # Car line (lines with "car:" or "Fixed" markers)
-                    if re.match(r'Car\s*:', l, re.IGNORECASE):
-                        cars_found.append(re.sub(r'^Car\s*:\s*', '', l, flags=re.IGNORECASE).strip())
-                    # Track entry: non-empty line that isn't a date line and has reasonable length
-                    # A track line is followed by a date line "(2026-..."
-                    if l and not l.startswith('(') and not l.startswith('Week') and \
-                       len(l) > 4 and not re.match(r'^[\d\s/]+$', l):
-                        # Peek ahead for date line
-                        if i + 1 < len(lines):
-                            next_l = lines[i + 1].strip()
-                            if next_l.startswith('(2026-') or re.match(r'\(20\d\d-\d\d-\d\d', next_l):
-                                matched_track = match_track(l)
-                                owned = False
-                                if matched_track:
-                                    owned = matched_track.owned or matched_track.track_id in owned_tracks_manual
-                                tracks_parsed.append({
-                                    "raw": l,
-                                    "track_id": matched_track.track_id if matched_track else None,
-                                    "name": matched_track.name if matched_track else None,
-                                    "owned": owned,
-                                })
+                    car_lines.append(l)
+                    i += 1
+                cars_found = [c.strip() for c in " ".join(car_lines).split(",") if c.strip()]
+
+                # Líneas de pistas ("Week N (YYYY-MM-DD)   Track Name   clima...   formato")
+                tracks_parsed = []
+                while i < len(lines):
+                    l = lines[i].strip()
+                    if is_new_series(l):
+                        break
+                    track_m = TRACK_RE.match(l)
+                    if track_m:
+                        rest = track_m.group(1)
+                        parts = re.split(r'\s{2,}', rest.strip())
+                        raw_name = parts[0] if parts else ""
+                        # Si el nombre de la pista pisa la columna de clima por falta de espacio
+                        raw_name = re.split(r'\d+°[FC]', raw_name)[0].strip()
+                        if raw_name:
+                            matched_track = match_track(raw_name)
+                            owned = False
+                            if matched_track:
+                                owned = matched_track.owned or matched_track.track_id in owned_tracks_manual
+                            tracks_parsed.append({
+                                "raw": raw_name,
+                                "track_id": matched_track.track_id if matched_track else None,
+                                "name": matched_track.name if matched_track else None,
+                                "owned": owned,
+                            })
                     i += 1
 
-                if tracks_parsed:
+                is_weekly = bool(week_guide_re.match(series_name))
+                if tracks_parsed and not (skip_weekly and is_weekly):
                     matched_count = sum(1 for t in tracks_parsed if t["track_id"] is not None)
+                    car_type, car_class_ids = derive_car_info(cars_found)
                     parsed_series.append({
                         "series_name": series_name,
                         "season": season,
                         "car_names": cars_found,
-                        "car_type": derive_car_type(cars_found),
-                        "license_class": license_class,
+                        "car_type": car_type,
+                        "car_class_ids": car_class_ids,
+                        "license_class": current_license,
                         "tracks": tracks_parsed,
                         "matched_count": matched_count,
                         "total_tracks": len(tracks_parsed),
+                        "likely_weekly_guide": is_weekly,
                     })
                 continue
             i += 1
 
-        # Heurística: detectar PDFs de "guía semanal" (ej. "13th Week ...")
-        # en vez de un calendario de temporada. Estos listan las sesiones de
-        # una sola semana de carreras, no las rondas de toda la temporada, y
-        # producirían recomendaciones de overlap/compra engañosas si se importan.
-        week_guide_re = re.compile(r'^\d+(?:st|nd|rd|th)\s+Week\b', re.IGNORECASE)
-        weekly_guide_count = 0
-        for s in parsed_series:
-            likely_weekly_guide = bool(week_guide_re.match(s["series_name"])) or s["total_tracks"] > 13
-            s["likely_weekly_guide"] = likely_weekly_guide
-            if likely_weekly_guide:
-                weekly_guide_count += 1
-
+        # Si la mayoría de las series detectadas son "guías semanales", avisar
+        # antes de importar (los datos no representan un calendario de temporada).
+        weekly_guide_count = sum(1 for s in parsed_series if s["likely_weekly_guide"])
         warning_type = None
         if parsed_series and weekly_guide_count >= len(parsed_series) / 2:
             warning_type = "likely_weekly_guide"
