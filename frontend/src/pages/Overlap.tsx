@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { api } from '@/api/client';
 import {
   ShoppingCart, CheckCircle2, XCircle,
@@ -82,7 +83,7 @@ export function Overlap() {
   const { t } = useTranslation();
   const [allSeries, setAllSeries] = useState<SeriesOption[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<CarGroupKey[]>([]);
-  const [licenseFilter, setLicenseFilter] = useState<string[]>([]);
+  const [licenseByCategory, setLicenseByCategory] = useState<Partial<Record<CarGroupKey, string[]>>>({});
   const [seriesSearch, setSeriesSearch] = useState('');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [tracks, setTracks] = useState<TrackOverlap[]>([]);
@@ -100,15 +101,23 @@ export function Overlap() {
   const toggleCategory = (g: CarGroupKey) => setCategoryFilter((prev) =>
     prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
   );
-  const toggleLicense = (l: string) => setLicenseFilter((prev) =>
-    prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]
-  );
+  const toggleCategoryLicense = (g: CarGroupKey, lic: string) => setLicenseByCategory((prev) => {
+    const current = prev[g] ?? [];
+    return { ...prev, [g]: current.includes(lic) ? current.filter((x) => x !== lic) : [...current, lic] };
+  });
 
-  // Series filtradas localmente por categoría de auto y licencia (multiselección) y búsqueda
+  // Series filtradas localmente por categoría de auto (multiselección), cada una con su
+  // propio subfiltro de licencia (ej. Fórmula + C, Sport + D), y búsqueda
   const sq = seriesSearch.trim().toLowerCase();
   const seriesOptions = allSeries
-    .filter((s) => categoryFilter.length === 0 || categoryFilter.includes(getCarGroupKey(s.car_type, s.series_name)))
-    .filter((s) => licenseFilter.length === 0 || licenseFilter.includes(s.license_class))
+    .filter((s) => {
+      if (categoryFilter.length === 0) return true;
+      const cat = getCarGroupKey(s.car_type, s.series_name);
+      if (!categoryFilter.includes(cat)) return false;
+      const lics = licenseByCategory[cat];
+      if (lics && lics.length > 0 && !lics.includes(s.license_class)) return false;
+      return true;
+    })
     .filter((s) => !sq || s.series_name.toLowerCase().includes(sq) || s.car_type.toLowerCase().includes(sq));
 
   // Load series options
@@ -264,7 +273,7 @@ export function Overlap() {
             <div className="flex gap-1.5 flex-wrap pt-1">
               {/* Car category filter (multiselección) */}
               <button
-                onClick={() => setCategoryFilter([])}
+                onClick={() => { setCategoryFilter([]); setLicenseByCategory({}); }}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors border ${
                   categoryFilter.length === 0
                     ? 'bg-primary text-primary-foreground'
@@ -287,33 +296,34 @@ export function Overlap() {
                 </button>
               ))}
             </div>
-            {/* License class filter (multiselección) */}
-            <div className="flex items-center gap-1.5 flex-wrap pt-1.5">
-              <Award size={12} className="text-muted-foreground shrink-0" />
-              <button
-                onClick={() => setLicenseFilter([])}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors border ${
-                  licenseFilter.length === 0
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border-border/50 text-muted-foreground hover:bg-accent'
-                }`}
-              >
-                {t('overlap.filterAll')}
-              </button>
-              {LICENSE_CLASSES.map((lic) => (
-                <button
-                  key={lic}
-                  onClick={() => toggleLicense(lic)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors border ${
-                    licenseFilter.includes(lic)
-                      ? LICENSE_BADGE_CLASS[lic]
-                      : 'border-border/50 text-muted-foreground hover:bg-accent'
-                  }`}
-                >
-                  {lic}
-                </button>
-              ))}
-            </div>
+            {/* Subfiltro de licencia por cada categoría seleccionada (ej. Fórmula + C, Sport + D) */}
+            {categoryFilter.length > 0 && (
+              <div className="space-y-1 pt-1.5">
+                {categoryFilter.map((g) => (
+                  <div key={g} className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="secondary" className={`text-xs shrink-0 ${GROUP_BADGE_CLASS[g]}`}>
+                      {t(CAR_GROUP_LABEL_KEYS[g])}
+                    </Badge>
+                    <Award size={12} className="text-muted-foreground shrink-0" />
+                    <div className="flex gap-1 flex-wrap">
+                      {LICENSE_CLASSES.map((lic) => (
+                        <button
+                          key={lic}
+                          onClick={() => toggleCategoryLicense(g, lic)}
+                          className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors border ${
+                            (licenseByCategory[g] ?? []).includes(lic)
+                              ? LICENSE_BADGE_CLASS[lic]
+                              : 'border-border/50 text-muted-foreground hover:bg-accent'
+                          }`}
+                        >
+                          {lic}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-1.5">
