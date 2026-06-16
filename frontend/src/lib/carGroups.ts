@@ -28,6 +28,31 @@ export const LICENSE_BADGE_CLASS: Record<LicenseClass, string> = {
   A: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
 };
 
+// Mapa explícito car_type → grupo: tiene prioridad total sobre los tokens de nombre de serie.
+// Evita falsos positivos como "Ford Mustang Challenge by Skip Barber" → formula.
+const CAR_TYPE_TO_GROUP: Record<string, CarGroupKey> = {
+  // GT & Sport
+  'gt4': 'gt_sport', 'gt3': 'gt_sport', 'gt3 cup': 'gt_sport',
+  'gte': 'gt_sport', 'gtp': 'gt_sport', 'lmp2': 'gt_sport', 'lmp3': 'gt_sport',
+  'sports car': 'gt_sport', 'touring car': 'gt_sport', 'tcr': 'gt_sport',
+  'supercars': 'gt_sport', 'stock car brasil': 'gt_sport',
+  'mx-5 cup': 'gt_sport', 'spec racer': 'gt_sport', 'gt challenge': 'gt_sport',
+  // Fórmula / open-wheel
+  'formula': 'formula', 'formula 1': 'formula', 'formula 4': 'formula',
+  'formula vee': 'formula', 'indycar': 'formula', 'indy pro 2000': 'formula',
+  'super formula': 'formula', 'classic f1': 'formula',
+  // Oval / NASCAR
+  'arca': 'oval_nascar', 'nascar cup': 'oval_nascar', 'nascar cup legacy': 'oval_nascar',
+  'nascar trucks': 'oval_nascar', 'late model': 'oval_nascar', 'legends': 'oval_nascar',
+  'modified': 'oval_nascar', 'srx': 'oval_nascar', 'street stock': 'oval_nascar',
+  'super late model': 'oval_nascar', 'mini stock': 'oval_nascar',
+  // Dirt
+  'dirt late model': 'dirt', 'dirt midget': 'dirt', 'dirt modified': 'dirt',
+  'sprint car': 'dirt', 'micro sprint': 'dirt',
+  // Rallycross / Off-Road
+  'rallycross': 'rallycross', 'off-road truck': 'rallycross',
+};
+
 const FORMULA_TOKENS = ['formula', 'f1', 'f2', 'f3', 'f4', 'f5', 'indycar', 'skip barber', 'dallara', 'ir-01', 'ir01', 'lotus'];
 const RALLYCROSS_TOKENS = ['rallycross', 'rally', 'off-road', 'off road', 'baja', 'lucas oil', 'crosskart', 'rx'];
 const DIRT_TOKENS = ['dirt', 'sprint car', 'midget', 'micro sprint', 'dirtcar', 'ump', 'world of outlaws', 'silver crown'];
@@ -38,7 +63,13 @@ const OVAL_NASCAR_TOKENS = [
 
 /** Clasificación detallada (para Garage y filtros con varios grupos). */
 export function getCarGroupKey(carClassName?: string | null, carName?: string | null): CarGroupKey {
-  const l = `${carClassName ?? ''} ${carName ?? ''}`.toLowerCase();
+  const carType = (carClassName ?? '').toLowerCase().trim();
+
+  // El car_type tiene prioridad: un GT4 nunca es Fórmula aunque el nombre diga "Skip Barber".
+  if (carType && CAR_TYPE_TO_GROUP[carType]) return CAR_TYPE_TO_GROUP[carType];
+
+  // Fallback por tokens en el texto combinado (para car_types no reconocidos)
+  const l = `${carType} ${(carName ?? '').toLowerCase()}`;
   if (RALLYCROSS_TOKENS.some((t) => l.includes(t))) return 'rallycross';
   if (DIRT_TOKENS.some((t) => l.includes(t))) return 'dirt';
   if (OVAL_NASCAR_TOKENS.some((t) => l.includes(t))) return 'oval_nascar';
