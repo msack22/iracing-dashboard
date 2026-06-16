@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CAR_GROUP_LABEL_KEYS, CAR_GROUP_ORDER, getCarGroupKey, type CarGroupKey, LICENSE_CLASSES, LICENSE_BADGE_CLASS } from '@/lib/carGroups';
-import { Search, Award } from 'lucide-react';
+import { Search, Award, Tag } from 'lucide-react';
 
 const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
   formula: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
@@ -84,6 +84,7 @@ export function Overlap() {
   const [allSeries, setAllSeries] = useState<SeriesOption[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<CarGroupKey[]>([]);
   const [licenseByCategory, setLicenseByCategory] = useState<Partial<Record<CarGroupKey, string[]>>>({});
+  const [carTypeByCategory, setCarTypeByCategory] = useState<Partial<Record<CarGroupKey, string[]>>>({});
   const [seriesSearch, setSeriesSearch] = useState('');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [tracks, setTracks] = useState<TrackOverlap[]>([]);
@@ -105,10 +106,28 @@ export function Overlap() {
     const current = prev[g] ?? [];
     return { ...prev, [g]: current.includes(lic) ? current.filter((x) => x !== lic) : [...current, lic] };
   });
+  const toggleCategoryCarType = (g: CarGroupKey, ct: string) => setCarTypeByCategory((prev) => {
+    const current = prev[g] ?? [];
+    return { ...prev, [g]: current.includes(ct) ? current.filter((x) => x !== ct) : [...current, ct] };
+  });
 
   const sq = seriesSearch.trim().toLowerCase();
 
-  // Series que entran al análisis de overlap según categoría/licencia (sin búsqueda).
+  // Car_types disponibles por categoría (para mostrar los botones del subfiltro)
+  const carTypesByCategory = useMemo(() => {
+    const result: Partial<Record<CarGroupKey, string[]>> = {};
+    for (const s of allSeries) {
+      const cat = getCarGroupKey(s.car_type, s.series_name);
+      if (!result[cat]) result[cat] = [];
+      if (!result[cat]!.includes(s.car_type)) result[cat]!.push(s.car_type);
+    }
+    for (const key of Object.keys(result) as CarGroupKey[]) {
+      result[key] = result[key]!.sort();
+    }
+    return result;
+  }, [allSeries]);
+
+  // Series que entran al análisis de overlap según categoría/licencia/car_type (sin búsqueda).
   // La búsqueda solo filtra los chips visibles, no el análisis.
   const filteredForOverlap = useMemo(() => allSeries.filter((s) => {
     if (categoryFilter.length === 0) return true;
@@ -116,8 +135,10 @@ export function Overlap() {
     if (!categoryFilter.includes(cat)) return false;
     const lics = licenseByCategory[cat];
     if (lics && lics.length > 0 && !lics.includes(s.license_class)) return false;
+    const carTypes = carTypeByCategory[cat];
+    if (carTypes && carTypes.length > 0 && !carTypes.includes(s.car_type)) return false;
     return true;
-  }), [allSeries, categoryFilter, licenseByCategory]);
+  }), [allSeries, categoryFilter, licenseByCategory, carTypeByCategory]);
 
   // Lo que se muestra en los chips: filteredForOverlap + búsqueda de texto
   const seriesOptions = useMemo(() =>
@@ -280,7 +301,7 @@ export function Overlap() {
             <div className="flex gap-1.5 flex-wrap pt-1">
               {/* Car category filter (multiselección) */}
               <button
-                onClick={() => { setCategoryFilter([]); setLicenseByCategory({}); }}
+                onClick={() => { setCategoryFilter([]); setLicenseByCategory({}); setCarTypeByCategory({}); }}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors border ${
                   categoryFilter.length === 0
                     ? 'bg-primary text-primary-foreground'
@@ -303,30 +324,54 @@ export function Overlap() {
                 </button>
               ))}
             </div>
-            {/* Subfiltro de licencia por cada categoría seleccionada (ej. Fórmula + C, Sport + D) */}
+            {/* Subfiltro de licencia + car_type por cada categoría seleccionada */}
             {categoryFilter.length > 0 && (
-              <div className="space-y-1 pt-1.5">
+              <div className="space-y-1.5 pt-1.5">
                 {categoryFilter.map((g) => (
-                  <div key={g} className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="secondary" className={`text-xs shrink-0 ${GROUP_BADGE_CLASS[g]}`}>
-                      {t(CAR_GROUP_LABEL_KEYS[g])}
-                    </Badge>
-                    <Award size={12} className="text-muted-foreground shrink-0" />
-                    <div className="flex gap-1 flex-wrap">
-                      {LICENSE_CLASSES.map((lic) => (
-                        <button
-                          key={lic}
-                          onClick={() => toggleCategoryLicense(g, lic)}
-                          className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors border ${
-                            (licenseByCategory[g] ?? []).includes(lic)
-                              ? LICENSE_BADGE_CLASS[lic]
-                              : 'border-border/50 text-muted-foreground hover:bg-accent'
-                          }`}
-                        >
-                          {lic}
-                        </button>
-                      ))}
+                  <div key={g} className="space-y-1">
+                    {/* Fila licencia */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="secondary" className={`text-xs shrink-0 ${GROUP_BADGE_CLASS[g]}`}>
+                        {t(CAR_GROUP_LABEL_KEYS[g])}
+                      </Badge>
+                      <Award size={12} className="text-muted-foreground shrink-0" />
+                      <div className="flex gap-1 flex-wrap">
+                        {LICENSE_CLASSES.map((lic) => (
+                          <button
+                            key={lic}
+                            onClick={() => toggleCategoryLicense(g, lic)}
+                            className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors border ${
+                              (licenseByCategory[g] ?? []).includes(lic)
+                                ? LICENSE_BADGE_CLASS[lic]
+                                : 'border-border/50 text-muted-foreground hover:bg-accent'
+                            }`}
+                          >
+                            {lic}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                    {/* Fila car_type (solo si hay más de 1 tipo en la categoría) */}
+                    {(carTypesByCategory[g] ?? []).length > 1 && (
+                      <div className="flex items-center gap-1.5 flex-wrap pl-1">
+                        <Tag size={11} className="text-muted-foreground shrink-0" />
+                        <div className="flex gap-1 flex-wrap">
+                          {(carTypesByCategory[g] ?? []).map((ct) => (
+                            <button
+                              key={ct}
+                              onClick={() => toggleCategoryCarType(g, ct)}
+                              className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors border ${
+                                (carTypeByCategory[g] ?? []).includes(ct)
+                                  ? 'bg-primary/15 text-primary border-primary/30'
+                                  : 'border-border/50 text-muted-foreground hover:bg-accent'
+                              }`}
+                            >
+                              {ct}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
