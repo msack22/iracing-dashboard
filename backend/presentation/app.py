@@ -471,6 +471,15 @@ def create_app(
                     i += 1
                 cars_found = [c.strip() for c in " ".join(car_lines).split(",") if c.strip()]
 
+                # La línea que rompió el loop contiene la clase de licencia mínima requerida
+                # para entrar a la serie: "Class D 4.0 --> Pro/WC 4.0" o "Rookie X.X --> ...".
+                # Eso es más útil que la sección del PDF para filtrar por licencia propia.
+                series_license = current_license
+                if i < len(lines) and '-->' in lines[i]:
+                    lic_m = re.match(r'^(?:Class\s+([RDCBA])|Rookie)\s*[\d.]*\s*-->', lines[i].strip(), re.IGNORECASE)
+                    if lic_m:
+                        series_license = lic_m.group(1).upper() if lic_m.group(1) else 'R'
+
                 # Líneas de pistas ("Week N (YYYY-MM-DD)   Track Name   clima...   formato")
                 tracks_parsed = []
                 while i < len(lines):
@@ -507,7 +516,7 @@ def create_app(
                         "car_names": cars_found,
                         "car_type": car_type,
                         "car_class_ids": car_class_ids,
-                        "license_class": current_license,
+                        "license_class": series_license,
                         "tracks": tracks_parsed,
                         "matched_count": matched_count,
                         "total_tracks": len(tracks_parsed),
