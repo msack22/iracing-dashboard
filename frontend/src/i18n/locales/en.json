@@ -97,6 +97,7 @@
     "seasonTracks": "Tracks this season ({{owned}}/{{total}})",
     "needToRace": "To be able to race you need:",
     "moreTracksEllipsis": "+ {{count}} more tracks…",
+    "searchPlaceholder": "Search series…",
     "filterAll": "All",
     "readyOnly": "✓ Ready to race only",
     "noResults": "No series match the selected filters.",

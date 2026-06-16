@@ -97,6 +97,7 @@
     "seasonTracks": "Pistas desta temporada ({{owned}}/{{total}})",
     "needToRace": "Para poder correr você precisa de:",
     "moreTracksEllipsis": "+ {{count}} pistas a mais…",
+    "searchPlaceholder": "Buscar série…",
     "filterAll": "Todas",
     "readyOnly": "✓ Só prontas para correr",
     "noResults": "Não há séries com os filtros selecionados.",

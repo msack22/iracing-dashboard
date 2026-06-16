@@ -13,7 +13,7 @@ const GROUP_BADGE_CLASS: Record<CarGroupKey, string> = {
   rallycross: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
   other: 'bg-muted text-muted-foreground border border-border',
 };
-import { Calendar, Car, MapPin, CheckCircle2, XCircle, Filter, Award } from 'lucide-react';
+import { Calendar, Car, MapPin, CheckCircle2, XCircle, Filter, Award, Search } from 'lucide-react';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -142,6 +142,7 @@ export function SeriesCalendar() {
   const [categoryFilter, setCategoryFilter] = useState<CarGroupKey[]>([]);
   const [licenseByCategory, setLicenseByCategory] = useState<Partial<Record<CarGroupKey, string[]>>>({});
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   const [readyOnly, setReadyOnly] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -162,7 +163,9 @@ export function SeriesCalendar() {
 
   // Filtro local por categoría de auto (multiselección), cada una con su propio
   // subfiltro de licencia (ej. Fórmula + C, Sport + D), luego refinamientos
+  const sq = search.trim().toLowerCase();
   const groupFiltered = allSeries.filter((s: any) => {
+    if (sq && !s.series_name.toLowerCase().includes(sq) && !s.car_type.toLowerCase().includes(sq)) return false;
     if (categoryFilter.length === 0) return true;
     const cat = getCarGroupKey(s.car_type, s.series_name);
     if (!categoryFilter.includes(cat)) return false;
@@ -195,6 +198,17 @@ export function SeriesCalendar() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4 space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('seriesCalendar.searchPlaceholder')}
+              className="h-8 w-full rounded-md border border-border bg-transparent pl-8 pr-3 text-sm outline-none focus:border-primary/50"
+            />
+          </div>
+
           <div className="flex items-center gap-2">
             <Filter size={13} className="text-muted-foreground shrink-0" />
             <div className="flex gap-1.5 flex-wrap">
