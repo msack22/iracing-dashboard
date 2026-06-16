@@ -147,6 +147,17 @@ export function Overlap() {
     ),
   [filteredForOverlap, sq]);
 
+  // Series agrupadas por categoría (para mostrar bajo cada filtro)
+  const seriesByCategory = useMemo(() => {
+    const groups: Partial<Record<CarGroupKey, SeriesOption[]>> = {};
+    for (const s of seriesOptions) {
+      const cat = getCarGroupKey(s.car_type, s.series_name);
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat]!.push(s);
+    }
+    return groups;
+  }, [seriesOptions]);
+
   // Load series options
   useEffect(() => {
     api.series.all().then((data: any[]) => {
@@ -324,11 +335,11 @@ export function Overlap() {
                 </button>
               ))}
             </div>
-            {/* Subfiltro de licencia + car_type por cada categoría seleccionada */}
+            {/* Subfiltro de licencia + car_type + chips de series por cada categoría seleccionada */}
             {categoryFilter.length > 0 && (
-              <div className="space-y-1.5 pt-1.5">
+              <div className="space-y-3 pt-1.5">
                 {categoryFilter.map((g) => (
-                  <div key={g} className="space-y-1">
+                  <div key={g} className="space-y-1.5 rounded-lg border border-border/40 bg-muted/20 p-2.5">
                     {/* Fila licencia */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge variant="secondary" className={`text-xs shrink-0 ${GROUP_BADGE_CLASS[g]}`}>
@@ -353,7 +364,7 @@ export function Overlap() {
                     </div>
                     {/* Fila car_type (solo si hay más de 1 tipo en la categoría) */}
                     {(carTypesByCategory[g] ?? []).length > 1 && (
-                      <div className="flex items-center gap-1.5 flex-wrap pl-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Tag size={11} className="text-muted-foreground shrink-0" />
                         <div className="flex gap-1 flex-wrap">
                           {(carTypesByCategory[g] ?? []).map((ct) => (
@@ -372,30 +383,53 @@ export function Overlap() {
                         </div>
                       </div>
                     )}
+                    {/* Chips de series de esta categoría */}
+                    {(seriesByCategory[g] ?? []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {(seriesByCategory[g] ?? []).map((s) => (
+                          <button
+                            key={s.series_id}
+                            onClick={() => toggleSeries(s.series_id)}
+                            className={cn(
+                              'rounded-lg border px-2.5 py-1 text-xs transition-colors',
+                              selected.has(s.series_id)
+                                ? 'border-primary/50 bg-primary/10 text-primary font-medium'
+                                : 'border-border text-muted-foreground hover:border-primary/30'
+                            )}
+                          >
+                            {s.series_name.replace(/ by .+/, '').replace(/ Fixed/, '').replace(/ Challenge/, '')}
+                            <span className="ml-1 opacity-60">{s.license_class}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-1.5">
-              {seriesOptions.map((s) => (
-                <button
-                  key={s.series_id}
-                  onClick={() => toggleSeries(s.series_id)}
-                  className={cn(
-                    'rounded-lg border px-2.5 py-1 text-xs transition-colors',
-                    selected.has(s.series_id)
-                      ? 'border-primary/50 bg-primary/10 text-primary font-medium'
-                      : 'border-border text-muted-foreground hover:border-primary/30'
-                  )}
-                >
-                  {s.series_name.replace(/ by .+/, '').replace(/ Fixed/, '').replace(/ Challenge/, '')}
-                  <span className="ml-1 opacity-60">{s.license_class}</span>
-                </button>
-              ))}
-            </div>
-          </CardContent>
+          {/* Lista plana solo cuando no hay categoría seleccionada */}
+          {categoryFilter.length === 0 && (
+            <CardContent>
+              <div className="flex flex-wrap gap-1.5">
+                {seriesOptions.map((s) => (
+                  <button
+                    key={s.series_id}
+                    onClick={() => toggleSeries(s.series_id)}
+                    className={cn(
+                      'rounded-lg border px-2.5 py-1 text-xs transition-colors',
+                      selected.has(s.series_id)
+                        ? 'border-primary/50 bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:border-primary/30'
+                    )}
+                  >
+                    {s.series_name.replace(/ by .+/, '').replace(/ Fixed/, '').replace(/ Challenge/, '')}
+                    <span className="ml-1 opacity-60">{s.license_class}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Toggle owned */}
