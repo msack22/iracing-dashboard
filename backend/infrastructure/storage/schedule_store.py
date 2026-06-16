@@ -107,7 +107,6 @@ def seed_catalog() -> None:
                        city=excluded.city,
                        country=excluded.country,
                        price=excluded.price,
-                       owned=excluded.owned,
                        configs=excluded.configs""",
                 (t.track_id, t.name, t.city, t.country, t.price, int(t.owned),
                  json.dumps(configs))
