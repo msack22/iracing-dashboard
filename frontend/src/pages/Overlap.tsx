@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -106,19 +106,25 @@ export function Overlap() {
     return { ...prev, [g]: current.includes(lic) ? current.filter((x) => x !== lic) : [...current, lic] };
   });
 
-  // Series filtradas localmente por categoría de auto (multiselección), cada una con su
-  // propio subfiltro de licencia (ej. Fórmula + C, Sport + D), y búsqueda
   const sq = seriesSearch.trim().toLowerCase();
-  const seriesOptions = allSeries
-    .filter((s) => {
-      if (categoryFilter.length === 0) return true;
-      const cat = getCarGroupKey(s.car_type, s.series_name);
-      if (!categoryFilter.includes(cat)) return false;
-      const lics = licenseByCategory[cat];
-      if (lics && lics.length > 0 && !lics.includes(s.license_class)) return false;
-      return true;
-    })
-    .filter((s) => !sq || s.series_name.toLowerCase().includes(sq) || s.car_type.toLowerCase().includes(sq));
+
+  // Series que entran al análisis de overlap según categoría/licencia (sin búsqueda).
+  // La búsqueda solo filtra los chips visibles, no el análisis.
+  const filteredForOverlap = useMemo(() => allSeries.filter((s) => {
+    if (categoryFilter.length === 0) return true;
+    const cat = getCarGroupKey(s.car_type, s.series_name);
+    if (!categoryFilter.includes(cat)) return false;
+    const lics = licenseByCategory[cat];
+    if (lics && lics.length > 0 && !lics.includes(s.license_class)) return false;
+    return true;
+  }), [allSeries, categoryFilter, licenseByCategory]);
+
+  // Lo que se muestra en los chips: filteredForOverlap + búsqueda de texto
+  const seriesOptions = useMemo(() =>
+    filteredForOverlap.filter((s) =>
+      !sq || s.series_name.toLowerCase().includes(sq) || s.car_type.toLowerCase().includes(sq)
+    ),
+  [filteredForOverlap, sq]);
 
   // Load series options
   useEffect(() => {
@@ -144,16 +150,17 @@ export function Overlap() {
 
   useEffect(() => { loadWishlist(); }, [loadWishlist]);
 
-  // Load overlap data
+  // Load overlap data: solo las series que coinciden con el filtro activo Y están seleccionadas
   const loadOverlap = useCallback(async () => {
     setLoading(true);
-    const ids = selected.size ? [...selected] : [];
+    const filteredIds = new Set(filteredForOverlap.map((s) => s.series_id));
+    const ids = [...selected].filter((id) => filteredIds.has(id));
     const data = await api.overlap.get(ids);
     setTracks(data);
     setLoading(false);
-  }, [selected]);
+  }, [selected, filteredForOverlap]);
 
-  useEffect(() => { if (seriesOptions.length) loadOverlap(); }, [loadOverlap, seriesOptions.length]);
+  useEffect(() => { loadOverlap(); }, [loadOverlap]);
 
   const updateCurrentWeek = async (week: number) => {
     if (week < 1) return;
