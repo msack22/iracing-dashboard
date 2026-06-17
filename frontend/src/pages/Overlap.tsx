@@ -99,9 +99,17 @@ export function Overlap() {
     api.settings.getCurrentWeek().then((d) => setCurrentWeek(d.current_week));
   }, []);
 
-  const toggleCategory = (g: CarGroupKey) => setCategoryFilter((prev) =>
-    prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
-  );
+  const toggleCategory = (g: CarGroupKey) => {
+    setCategoryFilter((prev) => {
+      if (prev.includes(g)) {
+        // Al deseleccionar, limpiar sus filtros de licencia y car_type
+        setLicenseByCategory((l) => { const n = { ...l }; delete n[g]; return n; });
+        setCarTypeByCategory((c) => { const n = { ...c }; delete n[g]; return n; });
+        return prev.filter((x) => x !== g);
+      }
+      return [...prev, g];
+    });
+  };
   const toggleCategoryLicense = (g: CarGroupKey, lic: string) => setLicenseByCategory((prev) => {
     const current = prev[g] ?? [];
     return { ...prev, [g]: current.includes(lic) ? current.filter((x) => x !== lic) : [...current, lic] };
@@ -130,19 +138,17 @@ export function Overlap() {
     return result;
   }, [allSeries, licenseByCategory]);
 
-  // Licencias disponibles por categoría filtradas por el car_type activo
-  // (si seleccionás GT3, solo aparecen licencias que tienen series GT3)
+  // Licencias disponibles por categoría — siempre muestra todas las que existen
+  // en esa categoría (no depende del car_type seleccionado)
   const availableLicensesByCategory = useMemo(() => {
     const result: Partial<Record<CarGroupKey, Set<string>>> = {};
     for (const s of allSeries) {
       const cat = getCarGroupKey(s.car_type, s.series_name);
-      const carTypes = carTypeByCategory[cat];
-      if (carTypes && carTypes.length > 0 && !carTypes.includes(s.car_type)) continue;
       if (!result[cat]) result[cat] = new Set();
       result[cat]!.add(s.license_class);
     }
     return result;
-  }, [allSeries, carTypeByCategory]);
+  }, [allSeries]);
 
   // Series que entran al análisis de overlap según categoría/licencia/car_type (sin búsqueda).
   // La búsqueda solo filtra los chips visibles, no el análisis.

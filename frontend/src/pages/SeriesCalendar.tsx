@@ -153,9 +153,15 @@ export function SeriesCalendar() {
     });
   }, []);
 
-  const toggleCategory = (g: CarGroupKey) => setCategoryFilter((prev) =>
-    prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
-  );
+  const toggleCategory = (g: CarGroupKey) => {
+    setCategoryFilter((prev) => {
+      if (prev.includes(g)) {
+        setLicenseByCategory((l) => { const n = { ...l }; delete n[g]; return n; });
+        return prev.filter((x) => x !== g);
+      }
+      return [...prev, g];
+    });
+  };
   const toggleCategoryLicense = (g: CarGroupKey, lic: string) => setLicenseByCategory((prev) => {
     const current = prev[g] ?? [];
     return { ...prev, [g]: current.includes(lic) ? current.filter((x) => x !== lic) : [...current, lic] };
