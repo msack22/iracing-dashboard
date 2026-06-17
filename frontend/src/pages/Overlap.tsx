@@ -113,11 +113,14 @@ export function Overlap() {
 
   const sq = seriesSearch.trim().toLowerCase();
 
-  // Car_types disponibles por categoría (para mostrar los botones del subfiltro)
+  // Car_types disponibles por categoría filtrados por la licencia activa
+  // (si seleccionás R, solo aparecen car_types que tienen series R)
   const carTypesByCategory = useMemo(() => {
     const result: Partial<Record<CarGroupKey, string[]>> = {};
     for (const s of allSeries) {
       const cat = getCarGroupKey(s.car_type, s.series_name);
+      const lics = licenseByCategory[cat];
+      if (lics && lics.length > 0 && !lics.includes(s.license_class)) continue;
       if (!result[cat]) result[cat] = [];
       if (!result[cat]!.includes(s.car_type)) result[cat]!.push(s.car_type);
     }
@@ -125,10 +128,10 @@ export function Overlap() {
       result[key] = result[key]!.sort();
     }
     return result;
-  }, [allSeries]);
+  }, [allSeries, licenseByCategory]);
 
-  // Licencias disponibles por categoría, teniendo en cuenta el car_type activo
-  // (para ocultar botones de licencia que no tienen series en esa combinación)
+  // Licencias disponibles por categoría filtradas por el car_type activo
+  // (si seleccionás GT3, solo aparecen licencias que tienen series GT3)
   const availableLicensesByCategory = useMemo(() => {
     const result: Partial<Record<CarGroupKey, Set<string>>> = {};
     for (const s of allSeries) {
