@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -161,6 +161,17 @@ export function SeriesCalendar() {
     return { ...prev, [g]: current.includes(lic) ? current.filter((x) => x !== lic) : [...current, lic] };
   });
 
+  // Licencias disponibles por categoría (para ocultar botones sin series reales)
+  const availableLicensesByCategory = useMemo(() => {
+    const result: Partial<Record<CarGroupKey, Set<string>>> = {};
+    for (const s of allSeries) {
+      const cat = getCarGroupKey(s.car_type, s.series_name);
+      if (!result[cat]) result[cat] = new Set();
+      result[cat]!.add(s.license_class);
+    }
+    return result;
+  }, [allSeries]);
+
   // Filtro local por categoría de auto (multiselección), cada una con su propio
   // subfiltro de licencia (ej. Fórmula + C, Sport + D), luego refinamientos
   const sq = search.trim().toLowerCase();
@@ -260,7 +271,7 @@ export function SeriesCalendar() {
                   </Badge>
                   <Award size={12} className="text-muted-foreground shrink-0" />
                   <div className="flex gap-1 flex-wrap">
-                    {LICENSE_CLASSES.map((lic) => (
+                    {LICENSE_CLASSES.filter((lic) => (availableLicensesByCategory[g] ?? new Set()).has(lic)).map((lic) => (
                       <button
                         key={lic}
                         onClick={() => toggleCategoryLicense(g, lic)}

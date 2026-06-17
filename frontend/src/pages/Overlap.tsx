@@ -127,6 +127,20 @@ export function Overlap() {
     return result;
   }, [allSeries]);
 
+  // Licencias disponibles por categoría, teniendo en cuenta el car_type activo
+  // (para ocultar botones de licencia que no tienen series en esa combinación)
+  const availableLicensesByCategory = useMemo(() => {
+    const result: Partial<Record<CarGroupKey, Set<string>>> = {};
+    for (const s of allSeries) {
+      const cat = getCarGroupKey(s.car_type, s.series_name);
+      const carTypes = carTypeByCategory[cat];
+      if (carTypes && carTypes.length > 0 && !carTypes.includes(s.car_type)) continue;
+      if (!result[cat]) result[cat] = new Set();
+      result[cat]!.add(s.license_class);
+    }
+    return result;
+  }, [allSeries, carTypeByCategory]);
+
   // Series que entran al análisis de overlap según categoría/licencia/car_type (sin búsqueda).
   // La búsqueda solo filtra los chips visibles, no el análisis.
   const filteredForOverlap = useMemo(() => allSeries.filter((s) => {
@@ -347,7 +361,7 @@ export function Overlap() {
                       </Badge>
                       <Award size={12} className="text-muted-foreground shrink-0" />
                       <div className="flex gap-1 flex-wrap">
-                        {LICENSE_CLASSES.map((lic) => (
+                        {LICENSE_CLASSES.filter((lic) => (availableLicensesByCategory[g] ?? new Set()).has(lic)).map((lic) => (
                           <button
                             key={lic}
                             onClick={() => toggleCategoryLicense(g, lic)}
