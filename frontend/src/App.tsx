@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Setup } from '@/pages/Setup';
@@ -36,26 +36,58 @@ function AppShell({ onLogout }: { onLogout: () => void }) {
 
 export default function App() {
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [backendDown, setBackendDown] = useState(false);
+  const healthRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    api.auth.status().then((s) => setConfigured(s.configured));
+    const check = () =>
+      fetch('/health', { signal: AbortSignal.timeout(4000) })
+        .then(r => setBackendDown(!r.ok))
+        .catch(() => setBackendDown(true));
+    check();
+    healthRef.current = setInterval(check, 15000);
+    return () => { if (healthRef.current) clearInterval(healthRef.current); };
   }, []);
+
+  useEffect(() => {
+    api.auth.status()
+      .then((s) => { setBackendDown(false); setConfigured(s.configured); })
+      .catch(() => { setBackendDown(true); setConfigured(false); });
+  }, []);
+
+  const backendBanner = backendDown ? (
+    <div className="fixed inset-x-0 top-0 z-[9999] bg-red-600 px-4 py-3 text-center text-white shadow-lg">
+      <span className="text-lg font-bold">⚠️ Backend Iracing no disponible</span>
+      <span className="ml-3 text-sm opacity-90">Ejecutá: <code className="font-mono bg-red-800 rounded px-1">cd backend && source venv/bin/activate && python main.py</code></span>
+    </div>
+  ) : null;
 
   if (configured === null) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
+      <>
+        {backendBanner}
+        <div className="flex h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </>
     );
   }
 
   if (!configured) {
-    return <Setup onConfigured={() => setConfigured(true)} />;
+    return (
+      <>
+        {backendBanner}
+        <Setup onConfigured={() => setConfigured(true)} />
+      </>
+    );
   }
 
   return (
-    <BrowserRouter>
-      <AppShell onLogout={() => setConfigured(false)} />
-    </BrowserRouter>
+    <>
+      {backendBanner}
+      <BrowserRouter>
+        <AppShell onLogout={() => setConfigured(false)} />
+      </BrowserRouter>
+    </>
   );
 }
