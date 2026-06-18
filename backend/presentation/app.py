@@ -77,6 +77,10 @@ def create_app(
         return {"ok": True}
 
     # ── Health ────────────────────────────────────────────────────────────────
+    @app.get("/")
+    def root():
+        return {"name": "Iracing API", "status": "OK", "health": "/health", "api": "/api"}
+
     @app.get("/health")
     def health():
         return {"status": "ok"}
